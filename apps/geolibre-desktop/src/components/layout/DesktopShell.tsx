@@ -2629,6 +2629,11 @@ export function DesktopShell({
               ) : (
                 <>
                   <MapCanvas
+                    equalEarthLabels={{
+                      hint: t("equalEarth.hint"),
+                      omitted: t("equalEarth.omitted"),
+                      detail: t("equalEarth.detail"),
+                    }}
                     canUseRemoteElevation={hasElevationConsent}
                     controllerRef={mapControllerRef}
                     identifyAllLabels={identifyAllLabels}

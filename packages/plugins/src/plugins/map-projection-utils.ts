@@ -32,8 +32,8 @@ function scheduleMercatorIdleGuard(map: MapLibreMap): void {
 
 /** Minimal app surface the shared mercator lock needs. */
 interface MercatorProjectionApp {
-  getMapProjection?: () => "globe" | "mercator";
-  setMapProjection?: (projection: "globe" | "mercator") => void;
+  getMapProjection?: () => "globe" | "mercator" | "equal-earth";
+  setMapProjection?: (projection: "globe" | "mercator" | "equal-earth") => void;
   getMap?: () => MapLibreMap | null;
 }
 
@@ -52,7 +52,7 @@ interface MercatorProjectionApp {
 // fires far more often than release) and the projection would never restore, so
 // a Set of held overlay-type keys is the correct model here.
 const mercatorProjectionHolders = new Set<string>();
-let capturedProjectionToRestore: "globe" | "mercator" | null = null;
+let capturedProjectionToRestore: "globe" | "mercator" | "equal-earth" | null = null;
 
 /**
  * Force the map to mercator on behalf of an overlay and register it as a holder.
@@ -67,12 +67,12 @@ export function acquireMercatorProjectionLock(
   mapOverride?: MapLibreMap | null,
 ): void {
   if (mercatorProjectionHolders.size === 0 && capturedProjectionToRestore === null) {
-    // Only remember "globe" as worth restoring. Never capture "mercator": it may
+    // Remember non-Mercator modes as worth restoring. Never capture "mercator": it may
     // be a value WE forced and persisted into the project file, so a reopened
     // overlay-only project would otherwise capture the forced mercator as the
     // "previous" and stay stuck in mercator after the last overlay is removed.
     const current = app.getMapProjection?.() ?? null;
-    capturedProjectionToRestore = current === "globe" ? "globe" : null;
+    capturedProjectionToRestore = current === "globe" || current === "equal-earth" ? current : null;
   }
   mercatorProjectionHolders.add(key);
   app.setMapProjection?.("mercator");
