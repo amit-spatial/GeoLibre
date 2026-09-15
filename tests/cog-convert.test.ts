@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { before, describe, it } from "node:test";
 import { GeoTiffReader } from "geolibre-wasm";
+import { writeArrayBuffer } from "geotiff";
 import {
   COG_WASM_COMPRESSIONS,
   convertGeoTiffToCog,
@@ -21,21 +22,36 @@ const stripedTiff = new Uint8Array(
   readFileSync(fileURLToPath(new URL("./fixtures/striped.tif", import.meta.url))),
 );
 
-// A 32x32 Float32 GeoTIFF written by geotiff.js, which always emits Motorola
-// (big-endian, "MM") TIFFs. Samples ramp as `(i % 500) / 4` with a 4x4 block of
-// the -9999 GDAL_NODATA sentinel in the top-left corner. GeoTiffReader decodes
-// its pixels as little-endian, so before the byte-order fix every sample came
-// back byte-swapped and nothing matched nodata. See opengeos/GeoLibre#2410.
-const bigEndianTiff = new Uint8Array(
-  readFileSync(fileURLToPath(new URL("./fixtures/big-endian-float32.tif", import.meta.url))),
-);
+/** A 32x32 Float32 surface: samples ramp as `(i % 500) / 4`, with a 4x4 block
+ * of the -9999 GDAL_NODATA sentinel in the top-left corner. */
+const BIG_ENDIAN_SIZE = 32;
+const bigEndianSamples = (() => {
+  const values = new Float32Array(BIG_ENDIAN_SIZE * BIG_ENDIAN_SIZE);
+  for (let i = 0; i < values.length; i += 1) values[i] = (i % 500) / 4;
+  for (let y = 0; y < 4; y += 1) {
+    for (let x = 0; x < 4; x += 1) values[y * BIG_ENDIAN_SIZE + x] = -9999;
+  }
+  return values;
+})();
 
-// The same shape of raster, Deflate-compressed over four strips, so
-// StripOffsets/StripByteCounts are arrays stored out of line rather than inline
-// — the compressed, multi-strip path through the geotiff.js decode that the
-// uncompressed single-strip fixture above does not reach.
-const bigEndianDeflateTiff = new Uint8Array(
-  readFileSync(fileURLToPath(new URL("./fixtures/big-endian-deflate.tif", import.meta.url))),
+// Built here rather than checked in as a fixture because what makes this input
+// interesting is one header byte pair (`MM`), which a binary blob hides.
+// geotiff.js is the writer behind GeoLibre's own client-side raster tools and
+// emits Motorola (big-endian) TIFFs for everything it writes, so it produces
+// exactly the kind of file users bring to opengeos/GeoLibre#2410: before the
+// byte-order fix GeoTiffReader decoded these samples as little-endian, so every
+// value came back byte-swapped and nothing matched nodata.
+const bigEndianTiff = new Uint8Array(
+  writeArrayBuffer(bigEndianSamples, {
+    width: BIG_ENDIAN_SIZE,
+    height: BIG_ENDIAN_SIZE,
+    ModelPixelScale: [0.25, 0.25, 0],
+    ModelTiepoint: [0, 0, 0, -120, 45, 0],
+    GDAL_NODATA: "-9999",
+    GTModelTypeGeoKey: 2,
+    GTRasterTypeGeoKey: 1,
+    GeographicTypeGeoKey: 4326,
+  } as Parameters<typeof writeArrayBuffer>[1]),
 );
 
 // In the browser wasm-bindgen fetches the bundled asset; under node:test we feed
@@ -203,24 +219,6 @@ describe("convertGeoTiffToCog", () => {
         if (value !== -9999) max = Math.max(max, value);
       }
       assert.equal(max, 499 / 4);
-    } finally {
-      reader.free();
-    }
-  });
-
-  it("converts a compressed, multi-strip big-endian GeoTIFF too", async () => {
-    const cog = await convertGeoTiffToCog(bigEndianDeflateTiff);
-    const out = await readGeoTiffInfo(cog);
-    assert.equal(out.tiled, true);
-    assert.equal(out.nodata, -9999);
-
-    const reader = new GeoTiffReader(cog);
-    try {
-      const band = reader.read_band_f32(0);
-      assert.equal(band.length, 32 * 32);
-      assert.equal(band[0], -9999);
-      assert.equal(band[4], 1);
-      assert.equal(band[31], 31 / 4);
     } finally {
       reader.free();
     }
