@@ -8,6 +8,7 @@ import {
   convertGeoTiffToCog,
   convertRasterDataToCog,
   initCogWasm,
+  isBigEndianTiff,
   isTiledGeoTiff,
   readGeoTiffInfo,
 } from "../packages/processing/src/cog-convert";
@@ -18,6 +19,15 @@ import { ensureWhiteboxRasterCog } from "../packages/processing/src/wasm-client"
 // until it is converted to a tiled COG. See opengeos/GeoLibre#789.
 const stripedTiff = new Uint8Array(
   readFileSync(fileURLToPath(new URL("./fixtures/striped.tif", import.meta.url))),
+);
+
+// A 32x32 Float32 GeoTIFF written by geotiff.js, which always emits Motorola
+// (big-endian, "MM") TIFFs. Samples ramp as `(i % 500) / 4` with a 4x4 block of
+// the -9999 GDAL_NODATA sentinel in the top-left corner. GeoTiffReader decodes
+// its pixels as little-endian, so before the byte-order fix every sample came
+// back byte-swapped and nothing matched nodata. See opengeos/GeoLibre#2410.
+const bigEndianTiff = new Uint8Array(
+  readFileSync(fileURLToPath(new URL("./fixtures/big-endian-float32.tif", import.meta.url))),
 );
 
 // In the browser wasm-bindgen fetches the bundled asset; under node:test we feed
@@ -144,6 +154,50 @@ describe("convertGeoTiffToCog", () => {
       deflate.byteLength < none.byteLength,
       `deflate (${deflate.byteLength}) should be smaller than none (${none.byteLength})`,
     );
+  });
+
+  it("tells a Motorola TIFF from an Intel one by its header magic", () => {
+    assert.equal(isBigEndianTiff(bigEndianTiff), true);
+    assert.equal(isBigEndianTiff(stripedTiff), false);
+    // Too short to carry a byte-order mark at all.
+    assert.equal(isBigEndianTiff(new Uint8Array([0x4d])), false);
+  });
+
+  it("converts a big-endian GeoTIFF without byte-swapping its samples", async () => {
+    const info = await readGeoTiffInfo(bigEndianTiff);
+    // The tags of a Motorola TIFF already read correctly; only the samples did
+    // not, which is why the corruption was invisible in the metadata.
+    assert.equal(info.nodata, -9999);
+    assert.equal(info.sample_format, "ieeefloat");
+    assert.equal(info.bits_per_sample, 32);
+
+    const cog = await convertGeoTiffToCog(bigEndianTiff);
+    const out = await readGeoTiffInfo(cog);
+    assert.equal(out.tiled, true);
+    assert.equal(out.width, 32);
+    assert.equal(out.height, 32);
+    assert.equal(out.nodata, -9999);
+
+    const reader = new GeoTiffReader(cog);
+    try {
+      const band = reader.read_band_f32(0);
+      assert.equal(band.length, 32 * 32);
+      // The nodata block survives as the exact sentinel, so it still compares
+      // equal to GDAL_NODATA and stays masked out of the render and the stats.
+      assert.equal(band[0], -9999);
+      assert.equal(band[3], -9999);
+      // And real samples keep their values instead of decoding to the ~1e-39 /
+      // ~1e38 magnitudes a byte-swapped Float32 produces.
+      assert.equal(band[4], 1);
+      assert.equal(band[31], 31 / 4);
+      let max = Number.NEGATIVE_INFINITY;
+      for (const value of band) {
+        if (value !== -9999) max = Math.max(max, value);
+      }
+      assert.equal(max, 499 / 4);
+    } finally {
+      reader.free();
+    }
   });
 
   it("normalizes every Whitebox WASM output because tiling alone does not prove COG conformance", async () => {

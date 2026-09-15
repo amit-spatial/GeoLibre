@@ -282,6 +282,7 @@ export {
   initCogWasm,
   readGeoTiffInfo,
   isTiledGeoTiff,
+  isBigEndianTiff,
   convertGeoTiffToCog,
   convertRasterDataToCog,
   COG_WASM_COMPRESSIONS,

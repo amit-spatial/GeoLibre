@@ -120,6 +120,52 @@ export async function isTiledGeoTiff(bytes: Uint8Array): Promise<boolean> {
   return (await readGeoTiffInfo(bytes)).tiled;
 }
 
+/**
+ * Whether TIFF bytes declare Motorola (big-endian) byte order in their header.
+ *
+ * A TIFF starts with `II` (0x4949, Intel / little-endian) or `MM` (0x4D4D,
+ * Motorola / big-endian); both are valid. Most writers emit `II`, but
+ * geotiff.js — the writer behind GeoLibre's own client-side raster tools, and a
+ * common way users produce a GeoTIFF in the browser — always emits `MM`.
+ *
+ * @param bytes - The raw TIFF file bytes.
+ * @returns `true` for a big-endian (`MM`) TIFF.
+ */
+export function isBigEndianTiff(bytes: Uint8Array): boolean {
+  return bytes.length >= 2 && bytes[0] === 0x4d && bytes[1] === 0x4d;
+}
+
+/**
+ * Decode every sample of a big-endian GeoTIFF, band-interleaved per pixel, with
+ * geotiff.js.
+ *
+ * {@link GeoTiffReader} parses the *tags* of a Motorola TIFF correctly
+ * (dimensions, CRS, geotransform and GDAL_NODATA all come back right) but
+ * materializes *sample* bytes as little-endian, so every pixel decodes to a
+ * byte-swapped bit pattern: a Float32 `-9999.0` reads as `5.5e-39`, a 0-100
+ * surface spreads across ±3.4e38, and no pixel compares equal to the nodata
+ * value any more — so the sentinel stops being masked and lands in the rescale
+ * window, the histogram and the pixel inspector. geotiff.js honors the header
+ * byte order; cog-tiler-wasm routes Motorola TIFFs to it for the same reason.
+ * See opengeos/GeoLibre#2410.
+ *
+ * @param bytes - The raw GeoTIFF file bytes.
+ * @returns All samples, band-interleaved per pixel, as `CogBuilder` expects.
+ */
+async function readBigEndianSamples(bytes: Uint8Array): Promise<ArrayLike<number>> {
+  const { fromArrayBuffer } = await import("geotiff");
+  // A view over a larger pooled buffer would hand geotiff.js bytes that are not
+  // the image, so copy unless the view is exactly its own ArrayBuffer.
+  const buffer =
+    bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+      ? (bytes.buffer as ArrayBuffer)
+      : (bytes.slice().buffer as ArrayBuffer);
+  const image = await (await fromArrayBuffer(buffer)).getImage();
+  // `interleave` yields (band0, band1, ...) per pixel, the layout read_all_f64
+  // returns and CogBuilder writes.
+  return (await image.readRasters({ interleave: true })) as unknown as ArrayLike<number>;
+}
+
 /** Decimation factors for the overview pyramid, halving until the coarsest
  * level is no larger than ~a couple of tiles. Empty for small images that need
  * no overviews. */
@@ -187,7 +233,14 @@ export async function convertGeoTiffToCog(
       // type. The transient f64 + f32 copies are bounded by the caller's
       // large-raster warning. The data is pixel-interleaved (band0,band1,... per
       // pixel), matching what CogBuilder expects.
-      const pixels = reader.read_all_f64();
+      //
+      // It reads samples as little-endian regardless of the header, though, so
+      // a Motorola TIFF's pixels go through geotiff.js instead. The COG written
+      // below is little-endian either way, which is what makes the output
+      // readable by every downstream decoder.
+      const pixels = isBigEndianTiff(bytes)
+        ? await readBigEndianSamples(bytes)
+        : reader.read_all_f64();
       const isByte = info.sample_format === "uint" && info.bits_per_sample <= 8;
       return isByte
         ? builder.write_u8(Uint8Array.from(pixels))
