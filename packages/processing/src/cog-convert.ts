@@ -155,10 +155,14 @@ export function isBigEndianTiff(bytes: Uint8Array): boolean {
 async function readBigEndianSamples(bytes: Uint8Array): Promise<ArrayLike<number>> {
   const { fromArrayBuffer } = await import("geotiff");
   // A view over a larger pooled buffer would hand geotiff.js bytes that are not
-  // the image, so copy unless the view is exactly its own ArrayBuffer.
+  // the image, and a SharedArrayBuffer is not an ArrayBuffer at all (a threaded
+  // wasm build can hand one over — see toArrayBuffer in tauri-io.ts), so copy
+  // unless the view is exactly its own plain ArrayBuffer.
   const buffer =
-    bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
-      ? (bytes.buffer as ArrayBuffer)
+    bytes.byteOffset === 0 &&
+    bytes.byteLength === bytes.buffer.byteLength &&
+    bytes.buffer instanceof ArrayBuffer
+      ? bytes.buffer
       : (bytes.slice().buffer as ArrayBuffer);
   const image = await (await fromArrayBuffer(buffer)).getImage();
   // `interleave` yields (band0, band1, ...) per pixel, the layout read_all_f64

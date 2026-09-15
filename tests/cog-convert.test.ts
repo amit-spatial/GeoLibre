@@ -30,6 +30,14 @@ const bigEndianTiff = new Uint8Array(
   readFileSync(fileURLToPath(new URL("./fixtures/big-endian-float32.tif", import.meta.url))),
 );
 
+// The same shape of raster, Deflate-compressed over four strips, so
+// StripOffsets/StripByteCounts are arrays stored out of line rather than inline
+// — the compressed, multi-strip path through the geotiff.js decode that the
+// uncompressed single-strip fixture above does not reach.
+const bigEndianDeflateTiff = new Uint8Array(
+  readFileSync(fileURLToPath(new URL("./fixtures/big-endian-deflate.tif", import.meta.url))),
+);
+
 // In the browser wasm-bindgen fetches the bundled asset; under node:test we feed
 // it the wasm bytes directly so the same converter code runs headless.
 const wasmBytes = new Uint8Array(
@@ -195,6 +203,24 @@ describe("convertGeoTiffToCog", () => {
         if (value !== -9999) max = Math.max(max, value);
       }
       assert.equal(max, 499 / 4);
+    } finally {
+      reader.free();
+    }
+  });
+
+  it("converts a compressed, multi-strip big-endian GeoTIFF too", async () => {
+    const cog = await convertGeoTiffToCog(bigEndianDeflateTiff);
+    const out = await readGeoTiffInfo(cog);
+    assert.equal(out.tiled, true);
+    assert.equal(out.nodata, -9999);
+
+    const reader = new GeoTiffReader(cog);
+    try {
+      const band = reader.read_band_f32(0);
+      assert.equal(band.length, 32 * 32);
+      assert.equal(band[0], -9999);
+      assert.equal(band[4], 1);
+      assert.equal(band[31], 31 / 4);
     } finally {
       reader.free();
     }
