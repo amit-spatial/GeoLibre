@@ -16,15 +16,29 @@ import { geojsonLayer } from "./helpers/layer-fixtures";
 
 // This file pins the contract between the shared Identify-restore marker
 // (map-identify-lifecycle) and the selection effect both 2D canvases run
-// (map-selection.ts): restoreIdentifySelection writes the restore marker, then
-// whichever engine applies that selection — MapboxCanvas inside its store
-// subscription, MapCanvas inside its React effect — must see it, and only for
-// the exact key that was restored.
+// (map-selection.ts): restoreIdentifySelection must set the marker BEFORE it
+// calls selectFeatures, so that whichever engine observes it — MapboxCanvas
+// through a synchronous store subscription (fires inside that write), or
+// MapCanvas through a React effect that runs after the restore returned — sees
+// exactly one `fit: false` write for the restored selection, and only for that
+// selection.
 
-const originalActions = {
-  selectLayer: useAppStore.getState().selectLayer,
-  selectFeatures: useAppStore.getState().selectFeatures,
-};
+const originalSelectLayer = useAppStore.getState().selectLayer;
+const originalSelectFeatures = useAppStore.getState().selectFeatures;
+
+// A zustand-style subscription, exactly as MapboxCanvas installs it: invoked
+// synchronously inside the store's set() for the write that changed the selection.
+function subscribeNextSelection(fn: () => unknown): () => void {
+  return useAppStore.subscribe((state, prev) => {
+    if (
+      state.selectedLayerId !== prev.selectedLayerId ||
+      state.selectedFeatureId !== prev.selectedFeatureId ||
+      state.selectedFeatureIds !== prev.selectedFeatureIds
+    ) {
+      fn();
+    }
+  });
+}
 
 afterEach(() => {
   useAppStore.setState({
@@ -32,7 +46,8 @@ afterEach(() => {
     selectedLayerId: null,
     selectedFeatureId: null,
     selectedFeatureIds: [],
-    ...originalActions,
+    selectLayer: originalSelectLayer,
+    selectFeatures: originalSelectFeatures,
   });
   // Drop any marker a test left behind so it can't leak into the next test.
   consumePendingIdentifyRestore("__drain__");
@@ -46,7 +61,8 @@ function seedIdentifyHit(): void {
     selectedLayerId: "identified",
     selectedFeatureId: "hit",
     selectedFeatureIds: ["hit"],
-    ...originalActions,
+    selectLayer: originalSelectLayer,
+    selectFeatures: originalSelectFeatures,
   });
 }
 
@@ -62,30 +78,20 @@ function popupState(patch: Partial<IdentifyPopupState> = {}): IdentifyPopupState
   };
 }
 
-/**
- * A recording stand-in for MapEngine — we only ever call it the way
- * applySelectionHighlight does internally.
- */
-function recordingEngine(): {
-  engine: Parameters<typeof applySelectionHighlight>[0];
-  highlightCalls: Array<{ featureId: string | string[] | null; fit: boolean | undefined }>;
-} {
-  const highlightCalls: Array<{ featureId: string | string[] | null; fit: boolean | undefined }> =
-    [];
+/** A recording stand-in for MapEngine — we only call it the way applySelectionHighlight does. */
+function recordingEngine() {
+  type Call = { featureId: string | string[] | null; fit: boolean | undefined };
+  const calls: Call[] = [];
   const engine = {
     highlightFeature(
-      layer: unknown,
+      _layer: unknown,
       featureId: string | string[] | null,
       options?: { fit?: boolean },
     ) {
-      void layer;
-      highlightCalls.push({
-        featureId: featureId ?? null,
-        fit: options?.fit,
-      });
+      calls.push({ featureId: featureId ?? null, fit: options?.fit });
     },
   } as unknown as Parameters<typeof applySelectionHighlight>[0];
-  return { engine, highlightCalls };
+  return { engine, calls };
 }
 
 describe("selectionFitKey", () => {
@@ -119,7 +125,7 @@ describe("selectionFitKey", () => {
     });
     assert.equal(anchorOnly, JSON.stringify(["layer", ["solo"]]));
 
-    // A delimiter-free serialization keeps ["a,b"] distinct from ["a", "b"].
+    // Delimiter-free serialization keeps ["a,b"] distinct from ["a", "b"].
     const embedded = selectionFitKey({
       selectedLayerId: "layer",
       selectedFeatureId: "a,b",
@@ -130,70 +136,101 @@ describe("selectionFitKey", () => {
   });
 });
 
-describe("restore marker -> fit suppression end-to-end", () => {
-  it("suppresses fit exactly once for the restored selection, for both canvas call shapes", () => {
+describe("restore marker -> fit suppression (both canvas call shapes)", () => {
+  it("expose the marker synchronously to a Mapbox subscriber during selectFeatures", () => {
     seedIdentifyHit();
-    const layers = useAppStore.getState().layers;
+    const { engine, calls } = recordingEngine();
 
-    const { engine, highlightCalls } = recordingEngine();
-
-    simulateCanvasRestoreEffect();
-
-    // --- The MapboxCanvas shape: reads the marker inside a store subscription,
-    // before the engine's highlight call — same synchronous call stack as the
-    // selectLayer/selectFeatures writes inside restoreIdentifySelection. ---
-    let mapboxRestoring = consumePendingIdentifyRestore(
-      selectionFitKey({
-        selectedLayerId: "previous",
-        selectedFeatureId: "b",
-        selectedFeatureIds: ["a", "b"],
-      }),
-    );
-    assert.equal(mapboxRestoring, true, "MapboxCanvas (sync subscriber) must observe the restore");
-    assert.equal(
+    // Reproduce MapboxCanvas's subscription: whenever the store reports a new
+    // selection, read the marker for that exact state and apply the highlight.
+    // Because this subscriber is installed via useAppStore.subscribe, zustand
+    // invokes it synchronously inside the set() that changed the selection.
+    let appliedRestoredKey: string | null = null;
+    const unsubscribe = subscribeNextSelection(() => {
+      const state = useAppStore.getState();
+      const key = selectionFitKey({
+        selectedLayerId: state.selectedLayerId,
+        selectedFeatureId: state.selectedFeatureId,
+        selectedFeatureIds: state.selectedFeatureIds,
+      });
+      if (key === null) return;
+      const restoring = consumePendingIdentifyRestore(key);
+      // Mirror the production call: same engine, same state, same key.
       applySelectionHighlight(
         engine,
-        layers,
-        "previous",
-        "b",
-        ["a", "b"],
+        state.layers,
+        state.selectedLayerId,
+        state.selectedFeatureId,
+        state.selectedFeatureIds,
         true,
         null,
-        mapboxRestoring,
-      ),
-      JSON.stringify(["previous", ["a", "b"]]),
-    );
-    const mbxCall = highlightCalls.at(-1);
-    assert.ok(mbxCall);
-    assert.equal(mbxCall.fit, false, "restored selection must not re-fit (Mapbox shape)");
-    assert.deepEqual(mbxCall.featureId, ["a", "b"], "the full multi-selection is highlighted");
+        restoring,
+      );
+      if (restoring) appliedRestoredKey = key;
+    });
 
-    // The marker is consumed: a re-read must return false.
+    const restoredKey = JSON.stringify(["previous", ["a", "b"]]);
+
+    restoreIdentifySelection(popupState());
+    unsubscribe();
+
+    // The restored selection must have been applied while restoring=true, so
+    // the fit was suppressed and the multi-select set was highlighted in full.
+    const restoredCall = calls.find((c) => c.fit === false);
+    assert.ok(restoredCall, "at least one applySelectionHighlight write must be fit-suppressed");
+    assert.deepEqual(restoredCall.featureId, ["a", "b"]);
     assert.equal(
-      consumePendingIdentifyRestore(
-        selectionFitKey({
-          selectedLayerId: "previous",
-          selectedFeatureId: "b",
-          selectedFeatureIds: ["a", "b"],
-        }),
-      ),
-      false,
-      "marker must not be reusable after one consumption",
+      appliedRestoredKey,
+      restoredKey,
+      "the suppressed write is exactly the restored selection",
     );
 
-    function simulateCanvasRestoreEffect(): void {
-      // restoreIdentifySelection runs first (user-dismissed the popup), then the
-      // engine's selection effect reads the marker — for MapCanvas that's a
-      // React effect that runs after the restore's call stack finished, for
-      // Mapbox a synchronous subscription. The marker is keyed, so both shapes
-      // agree on *which* selection this applies to.
-      restoreIdentifySelection(popupState());
-    }
+    // After the restore returned, no marker is left behind — the marker was
+    // consumed by the subscriber (or a superseding write), not left to be
+    // re-used by the deferred MapCanvas effect.
+    assert.equal(
+      consumePendingIdentifyRestore(restoredKey),
+      false,
+      "marker must not survive the restore + consumption",
+    );
+  });
+
+  it("defers the marker to the MapCanvas (React effect) path when no sync subscriber is present", () => {
+    seedIdentifyHit();
+    const { engine, calls } = recordingEngine();
+
+    // No subscriber, so the marker is not consumed inside the store write.
+    // React's effect runs later — simulate that by reading the key after the
+    // restore returns, exactly as MapCanvas's effect does.
+    restoreIdentifySelection(popupState());
+
+    const restoredKey = JSON.stringify(["previous", ["a", "b"]]);
+    const restoring = consumePendingIdentifyRestore(restoredKey);
+    assert.equal(restoring, true, "deferred effect must still see the marker");
+
+    const nextKey = applySelectionHighlight(
+      engine,
+      useAppStore.getState().layers,
+      "previous",
+      "b",
+      ["a", "b"],
+      true,
+      null,
+      restoring,
+    );
+    assert.equal(nextKey, restoredKey);
+    const restoredCall = calls.at(-1);
+    assert.ok(restoredCall);
+    assert.equal(restoredCall.fit, false, "restored selection must not re-fit (MapLibre shape)");
+    assert.deepEqual(restoredCall.featureId, ["a", "b"]);
+
+    // And the marker is now gone.
+    assert.equal(consumePendingIdentifyRestore(restoredKey), false);
   });
 
   it("does not suppress fit for a different (non-restored) selection", () => {
     seedIdentifyHit();
-    const { engine, highlightCalls } = recordingEngine();
+    const { engine, calls } = recordingEngine();
 
     restoreIdentifySelection(popupState());
     // A different selection arrives (not the restored one) before the effect
@@ -210,7 +247,9 @@ describe("restore marker -> fit suppression end-to-end", () => {
       }),
     );
     assert.equal(restoring, false, "a superseding selection is not the restore");
-    // The marker should still be consumed as a side effect of a non-matching read.
+
+    // The marker should still be cleared by that non-matching read — it is
+    // one-shot either way.
     assert.equal(
       consumePendingIdentifyRestore(
         selectionFitKey({
@@ -225,7 +264,7 @@ describe("restore marker -> fit suppression end-to-end", () => {
 
   it("a skipped restore (guard: user already changed selection) leaves no marker and no suppression", () => {
     seedIdentifyHit();
-    const { engine, highlightCalls } = recordingEngine();
+    const { engine, calls } = recordingEngine();
 
     // The user independently changed the selection while the popup was open.
     const store = useAppStore.getState();
@@ -255,7 +294,7 @@ describe("restore marker -> fit suppression end-to-end", () => {
       currentRestoring,
     );
     assert.equal(nextKey, JSON.stringify(["previous", ["user"]]));
-    const call = highlightCalls.at(-1);
+    const call = calls.at(-1);
     assert.ok(call);
     assert.equal(call.fit, true, "a user selection must still fit normally");
   });
