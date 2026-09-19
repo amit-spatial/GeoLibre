@@ -3,15 +3,10 @@ import { afterEach, describe, it } from "node:test";
 import { useAppStore } from "@geolibre/core";
 import {
   consumePendingIdentifyRestore,
-  createIdentifyPopupState,
   restoreIdentifySelection,
   type IdentifyPopupState,
 } from "../packages/map/src/map-identify-lifecycle";
-import {
-  applySelectionHighlight,
-  resolveHighlightIds,
-  selectionFitKey,
-} from "../packages/map/src/map-selection";
+import { applySelectionHighlight, selectionFitKey } from "../packages/map/src/map-selection";
 import { geojsonLayer } from "./helpers/layer-fixtures";
 
 // This file pins the contract between the shared Identify-restore marker
@@ -230,7 +225,6 @@ describe("restore marker -> fit suppression (both canvas call shapes)", () => {
 
   it("does not suppress fit for a different (non-restored) selection", () => {
     seedIdentifyHit();
-    const { engine, calls } = recordingEngine();
 
     restoreIdentifySelection(popupState());
     // A different selection arrives (not the restored one) before the effect
