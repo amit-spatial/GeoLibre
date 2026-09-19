@@ -143,14 +143,16 @@ describe("restore marker -> fit suppression (both canvas call shapes)", () => {
     let appliedRestoredKey: string | null = null;
     const unsubscribe = subscribeNextSelection(() => {
       const state = useAppStore.getState();
+      // Mirror MapboxCanvas.tsx byte-for-byte: it consumes the marker on
+      // EVERY qualifying store write (even a null-key intermediate write, e.g.
+      // the layer-only state right after selectLayer before selectFeatures),
+      // then applies the highlight with that state's restoring argument.
       const key = selectionFitKey({
         selectedLayerId: state.selectedLayerId,
         selectedFeatureId: state.selectedFeatureId,
         selectedFeatureIds: state.selectedFeatureIds,
       });
-      if (key === null) return;
       const restoring = consumePendingIdentifyRestore(key);
-      // Mirror the production call: same engine, same state, same key.
       applySelectionHighlight(
         engine,
         state.layers,
@@ -170,14 +172,22 @@ describe("restore marker -> fit suppression (both canvas call shapes)", () => {
     unsubscribe();
 
     // The restored selection must have been applied while restoring=true, so
-    // the fit was suppressed and the multi-select set was highlighted in full.
-    const restoredCall = calls.find((c) => c.fit === false);
-    assert.ok(restoredCall, "at least one applySelectionHighlight write must be fit-suppressed");
-    assert.deepEqual(restoredCall.featureId, ["a", "b"]);
+    // its write was fit-suppressed and the full multi-select set highlighted.
+    // (The intermediate selectLayer null-key write is also present and is
+    // correctly NOT the one keyed to the restored selection.)
+    const restoredCall = calls.find(
+      (c) =>
+        Array.isArray(c.featureId) &&
+        c.featureId.length === 2 &&
+        c.featureId[0] === "a" &&
+        c.featureId[1] === "b",
+    );
+    assert.ok(restoredCall, "the restored multi-selection must be highlighted");
+    assert.equal(restoredCall.fit, false, "the restored selection must not re-fit");
     assert.equal(
       appliedRestoredKey,
       restoredKey,
-      "the suppressed write is exactly the restored selection",
+      "the marker was consumed as a match on exactly the restored selection",
     );
 
     // After the restore returned, no marker is left behind — the marker was
@@ -199,28 +209,40 @@ describe("restore marker -> fit suppression (both canvas call shapes)", () => {
     // restore returns, exactly as MapCanvas's effect does.
     restoreIdentifySelection(popupState());
 
-    const restoredKey = JSON.stringify(["previous", ["a", "b"]]);
-    const restoring = consumePendingIdentifyRestore(restoredKey);
+    // The effect reads the CURRENT store selection (not a hard-coded one), so
+    // this also locks that restoreIdentifySelection wrote the right state:
+    // the effect consumes the marker for the selection the store actually has.
+    const state = useAppStore.getState();
+    assert.equal(state.selectedLayerId, "previous");
+    assert.equal(state.selectedFeatureId, "b");
+    assert.deepEqual(state.selectedFeatureIds, ["a", "b"]);
+
+    const key = selectionFitKey({
+      selectedLayerId: state.selectedLayerId,
+      selectedFeatureId: state.selectedFeatureId,
+      selectedFeatureIds: state.selectedFeatureIds,
+    });
+    const restoring = consumePendingIdentifyRestore(key);
     assert.equal(restoring, true, "deferred effect must still see the marker");
 
     const nextKey = applySelectionHighlight(
       engine,
-      useAppStore.getState().layers,
-      "previous",
-      "b",
-      ["a", "b"],
+      state.layers,
+      state.selectedLayerId,
+      state.selectedFeatureId,
+      state.selectedFeatureIds,
       true,
       null,
       restoring,
     );
-    assert.equal(nextKey, restoredKey);
+    assert.equal(nextKey, key);
     const restoredCall = calls.at(-1);
     assert.ok(restoredCall);
     assert.equal(restoredCall.fit, false, "restored selection must not re-fit (MapLibre shape)");
     assert.deepEqual(restoredCall.featureId, ["a", "b"]);
 
     // And the marker is now gone.
-    assert.equal(consumePendingIdentifyRestore(restoredKey), false);
+    assert.equal(consumePendingIdentifyRestore(key), false);
   });
 
   it("does not suppress fit for a different (non-restored) selection", () => {
