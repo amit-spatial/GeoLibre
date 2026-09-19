@@ -171,19 +171,23 @@ describe("restore marker -> fit suppression (both canvas call shapes)", () => {
     restoreIdentifySelection(popupState());
     unsubscribe();
 
-    // The restored selection must have been applied while restoring=true, so
-    // its write was fit-suppressed and the full multi-select set highlighted.
-    // (The intermediate selectLayer null-key write is also present and is
-    // correctly NOT the one keyed to the restored selection.)
-    const restoredCall = calls.find(
-      (c) =>
-        Array.isArray(c.featureId) &&
-        c.featureId.length === 2 &&
-        c.featureId[0] === "a" &&
-        c.featureId[1] === "b",
+    // The restored selection must have been applied exactly once while
+    // restoring=true: one fit-suppressed write carries the full multi-select
+    // set, and the intermediate selectLayer null-key write is distinct.
+    // A duplicate fit:false restore would violate the one-shot marker contract,
+    // so pin the count rather than just finding any match.
+    const isRestored = (c: { featureId: string | string[] | null }) =>
+      Array.isArray(c.featureId) &&
+      c.featureId.length === 2 &&
+      c.featureId[0] === "a" &&
+      c.featureId[1] === "b";
+    const restoredCalls = calls.filter(isRestored);
+    assert.equal(
+      restoredCalls.length,
+      1,
+      "the restored multi-selection is highlighted exactly once",
     );
-    assert.ok(restoredCall, "the restored multi-selection must be highlighted");
-    assert.equal(restoredCall.fit, false, "the restored selection must not re-fit");
+    assert.equal(restoredCalls[0].fit, false, "the restored selection must not re-fit");
     assert.equal(
       appliedRestoredKey,
       restoredKey,
@@ -236,6 +240,16 @@ describe("restore marker -> fit suppression (both canvas call shapes)", () => {
       restoring,
     );
     assert.equal(nextKey, key);
+    const isRestored = (c: { featureId: string | string[] | null }) =>
+      Array.isArray(c.featureId) &&
+      c.featureId.length === 2 &&
+      c.featureId[0] === "a" &&
+      c.featureId[1] === "b";
+    assert.equal(
+      calls.filter(isRestored).length,
+      1,
+      "the deferred effect applies the restored selection exactly once",
+    );
     const restoredCall = calls.at(-1);
     assert.ok(restoredCall);
     assert.equal(restoredCall.fit, false, "restored selection must not re-fit (MapLibre shape)");
