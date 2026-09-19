@@ -73,7 +73,11 @@ function recordingEngine(): {
   const highlightCalls: Array<{ featureId: string | string[] | null; fit: boolean | undefined }> =
     [];
   const engine = {
-    highlightFeature(layer: unknown, featureId: string | string[] | null, options?: { fit?: boolean }) {
+    highlightFeature(
+      layer: unknown,
+      featureId: string | string[] | null,
+      options?: { fit?: boolean },
+    ) {
       void layer;
       highlightCalls.push({
         featureId: featureId ?? null,
@@ -166,7 +170,13 @@ describe("restore marker -> fit suppression end-to-end", () => {
 
     // The marker is consumed: a re-read must return false.
     assert.equal(
-      consumePendingIdentifyRestore(selectionFitKey({ selectedLayerId: "previous", selectedFeatureId: "b", selectedFeatureIds: ["a", "b"] })),
+      consumePendingIdentifyRestore(
+        selectionFitKey({
+          selectedLayerId: "previous",
+          selectedFeatureId: "b",
+          selectedFeatureIds: ["a", "b"],
+        }),
+      ),
       false,
       "marker must not be reusable after one consumption",
     );
