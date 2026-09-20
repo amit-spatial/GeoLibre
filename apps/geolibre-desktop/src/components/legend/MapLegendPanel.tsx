@@ -573,6 +573,16 @@ export function MapLegendPanel({
 
       {editing && (
         <div className="shrink-0 space-y-2 overflow-y-auto border-t border-border/50 px-3 py-2">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+            <input
+              type="checkbox"
+              checked={legend.visibleLayersOnly !== false}
+              onChange={(event) =>
+                setLegend({ ...legend, visibleLayersOnly: event.target.checked })
+              }
+            />
+            <span className="min-w-0 flex-1 truncate">{t("legendPanel.visibleLayersOnly")}</span>
+          </label>
           <button
             type="button"
             onClick={addSection}

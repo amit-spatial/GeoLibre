@@ -862,8 +862,9 @@ export function buildAutoLegend(
   const entries: AutoLegendEntry[] = [];
 
   // Store order is bottom-first; the legend reads top-first.
+  const visibleOnly = config.visibleLayersOnly !== false;
   for (const layer of [...layers].reverse()) {
-    if (!layer.visible) continue;
+    if (visibleOnly && !layer.visible) continue;
     const custom = customEntries[layer.id];
     if (!custom && NON_LEGEND_TYPES.has(layer.type)) continue;
 

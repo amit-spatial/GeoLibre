@@ -554,8 +554,9 @@ export function PrintLayoutDialog({
           "convex-hull": t("style.generator.typeConvexHull"),
           buffer: t("style.generator.typeBuffer"),
         },
+        visibleLayersOnly: legendConfig.visibleLayersOnly !== false,
       }),
-    [layers, t],
+    [layers, t, legendConfig.visibleLayersOnly],
   );
   const legend = useMemo(
     () => applyLegendConfig(baseLegend, legendConfig),
@@ -3443,6 +3444,14 @@ export function PrintLayoutDialog({
                     label={t("printLayout.legend.groupByLayer")}
                     checked={legendConfig.groupByLayer}
                     onChange={(next) => setLegendConfig({ ...legendConfig, groupByLayer: next })}
+                  />
+                  <ToggleField
+                    id="legend-visible-only"
+                    label={t("printLayout.legend.visibleLayersOnly")}
+                    checked={legendConfig.visibleLayersOnly !== false}
+                    onChange={(next) =>
+                      setLegendConfig({ ...legendConfig, visibleLayersOnly: next })
+                    }
                   />
 
                   {editorRows.length === 0 ? (

@@ -492,6 +492,9 @@ function normalizeLegendConfig(legend: unknown): LegendConfig | undefined {
     groupByLayer: normalizeBoolean(candidate.groupByLayer, DEFAULT_LEGEND_CONFIG.groupByLayer),
     order,
     overrides,
+    // Only the falsy flag is meaningful: visible-only is the default, so
+    // persisting `true` would add a no-op key to every round-tripped project.
+    ...(candidate.visibleLayersOnly === false ? { visibleLayersOnly: false } : {}),
     ...(Object.keys(customEntries).length > 0 ? { customEntries } : {}),
     ...(candidate.panelVisible === true ? { panelVisible: true } : {}),
     ...(candidate.panelCollapsed === true ? { panelCollapsed: true } : {}),

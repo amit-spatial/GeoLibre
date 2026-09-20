@@ -65,6 +65,11 @@ export const DEFAULT_GEOMETRY_GENERATOR_LEGEND_LABELS: GeometryGeneratorLegendLa
 export interface GeometryGeneratorLegendOptions {
   labels?: Partial<GeometryGeneratorLegendLabels>;
   formatValue?: (value: number) => string;
+  /**
+   * Honored by {@link buildLegend}: when false, layers switched off on the map
+   * still contribute entries. Defaults to true, matching `LegendConfig`.
+   */
+  visibleLayersOnly?: boolean;
 }
 
 /** Display-ready description of a geometry-generator symbol layer. */
@@ -88,7 +93,8 @@ export interface GeometryGeneratorLegendParts {
 export const MAX_CATEGORY_SWATCHES = 100;
 
 /**
- * Build legend entries from the visible layers. Vector layers contribute a
+ * Build legend entries from the layers. Only visible layers contribute unless
+ * `options.visibleLayersOnly` is false. Vector layers contribute a
  * colored swatch (or several, for graduated/categorized symbology); raster and
  * service layers contribute a single neutral swatch; 3D and media layers are
  * omitted.
@@ -102,9 +108,10 @@ export function buildLegend(
   options: GeometryGeneratorLegendOptions = {},
 ): LegendEntry[] {
   const entries: LegendEntry[] = [];
+  const visibleOnly = options.visibleLayersOnly !== false;
   // Render order in the store is bottom-first; legends read top-first.
   for (const layer of [...layers].reverse()) {
-    if (!layer.visible) continue;
+    if (visibleOnly && !layer.visible) continue;
     const swatches = legendSwatchesForLayer(layer, options);
     // No swatches means a type with no meaningful legend representation.
     if (swatches.length === 0) continue;

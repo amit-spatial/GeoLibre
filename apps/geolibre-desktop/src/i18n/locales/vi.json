@@ -1636,6 +1636,7 @@
     "legend": {
       "defaultTitle": "Chú thích",
       "groupByLayer": "Nhóm các lớp theo lớp",
+      "visibleLayersOnly": "Chỉ các lớp hiển thị",
       "empty": "Không có tính năng nào phù hợp với bộ lọc hiện tại.",
       "labelPlaceholder": "Nhãn",
       "moveUp": "Đặt hàng",
@@ -7566,6 +7567,7 @@
     "done": "Chỉnh sửa xong",
     "close": "Đóng chú giải",
     "empty": "Không có lớp hiển thị nào để liệt kê.",
+    "visibleLayersOnly": "Chỉ các lớp hiển thị",
     "renameTitle": "Danh hiệu huyền thoại",
     "renameEntry": "Đổi tên {{name}}",
     "renameItem": "Đổi tên {{name}}",

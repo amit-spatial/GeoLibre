@@ -268,6 +268,22 @@ describe("buildLegend", () => {
     );
   });
 
+  it("keeps hidden layers when visibleLayersOnly is off", () => {
+    const layers = [
+      makeLayer({ id: "a", name: "A", visible: false }),
+      makeLayer({ id: "b", name: "B", visible: true }),
+    ];
+    assert.deepEqual(
+      buildLegend(layers, { visibleLayersOnly: false }).map((e) => e.name),
+      ["B", "A"],
+    );
+    // Omitted behaves as true, so callers that never pass it are unaffected.
+    assert.deepEqual(
+      buildLegend(layers, {}).map((e) => e.name),
+      ["B"],
+    );
+  });
+
   it("omits 3D and media layer types", () => {
     const legend = buildLegend([
       makeLayer({ id: "a", name: "Cloud", type: "lidar" }),

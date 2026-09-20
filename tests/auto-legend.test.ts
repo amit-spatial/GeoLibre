@@ -91,6 +91,25 @@ describe("buildAutoLegend — vector layers", () => {
     assert.equal(entries[1].shape, "circle");
   });
 
+  it("keeps hidden layers when visibleLayersOnly is off", () => {
+    const layers = [
+      layer({ id: "a", name: "A", metadata: { geometryType: "point" } }),
+      layer({ id: "b", name: "B", visible: false, metadata: { geometryType: "point" } }),
+      layer({ id: "c", name: "C", metadata: { geometryType: "line" } }),
+    ];
+    assert.deepEqual(
+      buildAutoLegend(layers, config({ visibleLayersOnly: false }), EN).map((entry) => entry.name),
+      ["C", "B", "A"],
+    );
+    // Absent means visible-only, so an older project keeps today's behavior.
+    const legacy = config();
+    delete (legacy as { visibleLayersOnly?: boolean }).visibleLayersOnly;
+    assert.deepEqual(
+      buildAutoLegend(layers, legacy, EN).map((entry) => entry.name),
+      ["C", "A"],
+    );
+  });
+
   it("adds a fixed-size generated centroid after the parent symbol", () => {
     const [entry] = buildAutoLegend(
       [

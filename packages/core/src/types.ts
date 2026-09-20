@@ -1777,6 +1777,13 @@ export interface LegendConfig {
   /** When true, classes are grouped under a per-layer heading. */
   groupByLayer: boolean;
   /**
+   * When true (the default), only layers currently switched on contribute
+   * entries. Turn it off to keep a layer in the legend while it is hidden on
+   * the map — useful when authoring a legend for a map whose layers are toggled
+   * as the reader moves through it.
+   */
+  visibleLayersOnly?: boolean;
+  /**
    * Custom top-level entry order by layer id, top-first. Layer ids not listed
    * keep their default order after the listed ones.
    */
@@ -1810,6 +1817,7 @@ export interface LegendConfig {
 export const DEFAULT_LEGEND_CONFIG: LegendConfig = Object.freeze({
   title: "Legend",
   groupByLayer: true,
+  visibleLayersOnly: true,
   order: Object.freeze([] as string[]) as string[],
   overrides: Object.freeze({} as Record<string, LegendItemOverride>) as Record<
     string,

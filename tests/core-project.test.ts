@@ -322,6 +322,25 @@ describe("project parsing", () => {
     assert.deepEqual(project.legend?.overrides, { a: { label: "Renamed", hidden: true } });
   });
 
+  it("persists visibleLayersOnly only when it is turned off", () => {
+    const parse = (legend: unknown) =>
+      parseProject(
+        JSON.stringify({
+          version: "0.1.0",
+          name: "Legend",
+          mapView: { center: [0, 0], zoom: 2, bearing: 0, pitch: 0 },
+          legend,
+        }),
+      ).legend;
+
+    assert.equal(parse({ visibleLayersOnly: false })?.visibleLayersOnly, false);
+    // True is the default, so it is dropped rather than written back on every
+    // round trip; absent and a junk value both read as the default downstream.
+    assert.ok(!("visibleLayersOnly" in (parse({ visibleLayersOnly: true }) ?? {})));
+    assert.ok(!("visibleLayersOnly" in (parse({ title: "L" }) ?? {})));
+    assert.ok(!("visibleLayersOnly" in (parse({ visibleLayersOnly: "no" }) ?? {})));
+  });
+
   it("keeps hand-authored legend item sizes and drops nonsensical ones", () => {
     const project = parseProject(
       JSON.stringify({
