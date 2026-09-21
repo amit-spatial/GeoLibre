@@ -2461,9 +2461,13 @@ body,
   max-height: none;
 }
 
+/* Fill the backdrop for a photo big enough to stand it, but stop at twice the
+   source's own resolution: the pinned traffic cameras only serve 320x260
+   stills, and blowing one up to the viewport is just a bigger blur. The caps
+   come from the viewer, which sets them once the image reports a natural size. */
 .geolibre-popup-image-viewer-img {
-  width: calc(100vw - 4rem);
-  height: calc(100vh - 4rem);
+  max-width: min(calc(100vw - 4rem), var(--geolibre-popup-image-max-w, 100vw));
+  max-height: min(calc(100vh - 4rem), var(--geolibre-popup-image-max-h, 100vh));
   object-fit: contain;
 }
 

@@ -98,6 +98,16 @@ export function installCesiumInteractions(
           : Math.max(0, point.y - gap - box.offsetHeight)
       }px`;
     };
+    // Which side of the cursor the box sits on is a placement-time decision.
+    // Re-deciding it while the user drags the native resize handle would flip
+    // the box to the other side of the pointer mid-drag, so a resize only pulls
+    // the box back inside the host without moving its anchored edges.
+    const clampBox = () => {
+      const left = Number.parseFloat(box.style.left) || 0;
+      const top = Number.parseFloat(box.style.top) || 0;
+      box.style.left = `${Math.max(0, Math.min(left, host.clientWidth - box.offsetWidth))}px`;
+      box.style.top = `${Math.max(0, Math.min(top, host.clientHeight - box.offsetHeight))}px`;
+    };
     positionBox();
     // Lazy popup images have no intrinsic height during the first placement.
     // Reposition on the next layout even when the browser already cached the
@@ -108,7 +118,7 @@ export function installCesiumInteractions(
     }
     if (hasImage && typeof ResizeObserver !== "undefined") {
       popupResizeObserver?.disconnect();
-      popupResizeObserver = new ResizeObserver(positionBox);
+      popupResizeObserver = new ResizeObserver(clampBox);
       popupResizeObserver.observe(box);
     }
     return box;

@@ -129,6 +129,19 @@ function makeGlobe(startingMultiplier = 0) {
         },
         requestRender: () => {},
         registerMovingPointLayer: () => () => {},
+        // The viewport feeds read the camera through the scene handle, and the
+        // CCTV feed keys its request on whether previews are visible at this
+        // zoom, so derive a plausible zoom from the span the test set rather
+        // than pinning a constant that ignores `setViewBounds`.
+        readView: () => {
+          const [west, south, east, north] = viewBounds;
+          return {
+            center: [(west + east) / 2, (south + north) / 2] as [number, number],
+            zoom: Math.log2(360 / Math.max(east - west, 1e-6)),
+            bearing: 0,
+            pitch: 0,
+          };
+        },
       };
     },
     registerRightPanel: (options: { render: (container: HTMLElement) => () => void }) => {

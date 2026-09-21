@@ -27,9 +27,20 @@ export interface IdentifyPopupOptions {
   zoom?: number;
 }
 
-/** Open a configured popup image in a viewport-sized lightbox. */
+/**
+ * Closes the lightbox that is currently open, if any. Held module-side so a
+ * second image link tears the previous viewer down through the same path that
+ * unregisters its key handler, rather than orphaning the listener by removing
+ * only the DOM node.
+ */
+let closeActivePopupImageViewer: (() => void) | null = null;
+
+/** Open a configured popup image in a lightbox over the map. */
 function openPopupImageViewer(source: string, alt: string): void {
-  document.querySelector(".geolibre-popup-image-viewer")?.remove();
+  closeActivePopupImageViewer?.();
+  // Focus moves into the dialog and has to come back to whatever opened it,
+  // which is the image link in the popup unless the popup itself has gone.
+  const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const overlay = document.createElement("div");
   overlay.className = "geolibre-photo-fullscreen geolibre-popup-image-viewer";
   overlay.role = "dialog";
@@ -40,6 +51,16 @@ function openPopupImageViewer(source: string, alt: string): void {
   image.src = source;
   image.alt = alt;
   image.className = "geolibre-popup-image-viewer-img";
+  // Pinned providers such as Caltrans serve small stills (320x260), and
+  // stretching one to the viewport just magnifies the JPEG artifacts. Publish
+  // the natural size so the stylesheet can stop enlarging past 2x.
+  const capToNaturalSize = () => {
+    if (!image.naturalWidth || !image.naturalHeight) return;
+    overlay.style.setProperty("--geolibre-popup-image-max-w", `${image.naturalWidth * 2}px`);
+    overlay.style.setProperty("--geolibre-popup-image-max-h", `${image.naturalHeight * 2}px`);
+  };
+  if (image.complete) capToNaturalSize();
+  else image.addEventListener("load", capToNaturalSize, { once: true });
 
   const closeButton = document.createElement("button");
   closeButton.type = "button";
@@ -49,16 +70,32 @@ function openPopupImageViewer(source: string, alt: string): void {
 
   const close = () => {
     document.removeEventListener("keydown", onKeyDown);
+    if (closeActivePopupImageViewer === close) closeActivePopupImageViewer = null;
     overlay.remove();
+    if (trigger?.isConnected) trigger.focus();
   };
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") close();
+    if (event.key === "Escape") {
+      // The globe's own Escape handler listens on `window` and would clear the
+      // Identify popup underneath, so closing the lightbox stops there.
+      event.stopPropagation();
+      close();
+      return;
+    }
+    // An aria-modal dialog must hold focus. The close button is its only
+    // control, so Tab in either direction stays on it instead of walking into
+    // the page behind the backdrop.
+    if (event.key === "Tab") {
+      event.preventDefault();
+      closeButton.focus();
+    }
   };
   closeButton.addEventListener("click", close);
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) close();
   });
   document.addEventListener("keydown", onKeyDown);
+  closeActivePopupImageViewer = close;
   overlay.append(image, closeButton);
   document.body.appendChild(overlay);
   closeButton.focus();

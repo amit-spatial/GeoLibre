@@ -12,6 +12,8 @@ const original = {
   document: globalThis.document,
   requestAnimationFrame: globalThis.requestAnimationFrame,
   cancelAnimationFrame: globalThis.cancelAnimationFrame,
+  ResizeObserver: globalThis.ResizeObserver,
+  HTMLAnchorElement: globalThis.HTMLAnchorElement,
 };
 let cleanup: (() => void) | undefined;
 afterEach(() => {
@@ -20,21 +22,41 @@ afterEach(() => {
   Object.assign(globalThis, original);
 });
 
-function setup() {
+/**
+ * @param options.imagePopup Give the identified layers a popup image field, so
+ *   `place` takes its image-popup branch (resizable box, resize observer).
+ */
+function setup(options: { imagePopup?: boolean } = {}) {
   const { window, document } = parseHTML("<html><body><div><canvas></canvas></div></body></html>");
   const host = document.querySelector("div")!;
   Object.defineProperties(host, {
     clientWidth: { configurable: true, value: 500 },
     clientHeight: { configurable: true, value: 500 },
   });
+  // The popup's own measurements. A resizable image popup grows under the
+  // user's drag, so the test drives them rather than pinning constants.
+  let boxWidth = 280;
+  let boxHeight = 100;
   Object.defineProperties(window.HTMLElement.prototype, {
-    offsetWidth: { configurable: true, get: () => 280 },
-    offsetHeight: { configurable: true, get: () => 100 },
+    offsetWidth: { configurable: true, get: () => boxWidth },
+    offsetHeight: { configurable: true, get: () => boxHeight },
   });
+  const resizeCallbacks: ResizeObserverCallback[] = [];
   const frames = new Map<number, FrameRequestCallback>();
   Object.assign(globalThis, {
     window,
     document,
+    // An image popup's row renders a link for a remote URL, which it picks by
+    // `instanceof HTMLAnchorElement`.
+    HTMLAnchorElement: window.HTMLAnchorElement,
+    ResizeObserver: class {
+      constructor(callback: ResizeObserverCallback) {
+        resizeCallbacks.push(callback);
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    },
     requestAnimationFrame: (fn: FrameRequestCallback) => {
       frames.set(1, fn);
       return 1;
@@ -60,7 +82,14 @@ function setup() {
       visible: true,
       opacity: 1,
       style: {},
-      popup: { click, hover: true, titleField: "name" },
+      popup: {
+        click,
+        hover: true,
+        titleField: "name",
+        ...(options.imagePopup
+          ? { fields: [{ field: "image", label: "Camera", kind: "image" as const }] }
+          : {}),
+      },
     }),
   );
   useAppStore.setState({
@@ -93,7 +122,10 @@ function setup() {
         return layers.map((layer) => ({
           layerId: layer.id,
           featureId: identifyFeatureId,
-          properties: { name: layer.name },
+          properties: {
+            name: layer.name,
+            ...(options.imagePopup ? { image: "https://cameras.example/cam-1.jpg" } : {}),
+          },
           geometry: null,
         }));
       },
@@ -137,6 +169,12 @@ function setup() {
     },
     get destroyed() {
       return destroyed;
+    },
+    /** Grow the popup the way dragging its native resize handle would. */
+    resizePopupTo: (width: number, height: number) => {
+      boxWidth = width;
+      boxHeight = height;
+      for (const callback of resizeCallbacks) callback([], {} as ResizeObserver);
     },
   };
 }
@@ -187,6 +225,23 @@ it("flips a wide identify popup away from a point near the canvas edge", () => {
   assert.equal(popup.style.maxWidth, "min(280px, 80%)");
   assert.equal(popup.style.left, "158px");
   assert.equal(popup.style.top, "262px");
+});
+
+it("clamps a resized image popup in bounds without flipping it across the cursor", () => {
+  const f = setup({ imagePopup: true });
+  f.clickAt(100, 100);
+  f.flush();
+  const popup = f.document.querySelector<HTMLElement>(".geolibre-identify-image-popup")!;
+  assert.equal(popup.style.left, "112px");
+  assert.equal(popup.style.top, "112px");
+
+  // Dragging the handle past the right edge pulls the box back inside the
+  // globe, but it must keep sitting to the right of the cursor. Re-deciding the
+  // anchor here would slam it to left: 0 and teleport it out from under the
+  // pointer mid-drag.
+  f.resizePopupTo(420, 300);
+  assert.equal(popup.style.left, "80px");
+  assert.equal(popup.style.top, "112px");
 });
 
 it("keeps the Identify cursor in sync with the active tool", () => {
