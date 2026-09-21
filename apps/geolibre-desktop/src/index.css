@@ -2390,9 +2390,36 @@ body,
   flex: 1 1 auto;
   min-height: 0;
   max-height: min(560px, calc(100vh - 184px));
-  overflow-y: scroll;
+  overflow-y: auto;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
+}
+
+/* Image fields need the popup width, not the narrow value column used by text
+   attributes. The popup can be resized and the image opens at its native size
+   in a new tab, while ordinary identify popups retain their compact layout. */
+.geolibre-identify-popup-root:has(.geolibre-popup-image) {
+  width: min(420px, calc(100vw - 48px));
+  max-width: min(85vw, 900px);
+  resize: both;
+}
+
+.geolibre-identify-popup-image-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.geolibre-popup-image-link {
+  display: block;
+  width: 100%;
+  cursor: zoom-in;
+}
+
+.geolibre-popup-image {
+  display: block;
+  width: 100%;
+  max-height: min(50vh, 420px);
+  object-fit: contain;
+  background: hsl(var(--muted));
 }
 
 /* The attribute-table toolbar wraps into several rows on portrait phones. Its

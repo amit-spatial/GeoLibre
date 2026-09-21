@@ -49,14 +49,17 @@ export function installCesiumInteractions(
     popup = null;
   };
   const place = (content: HTMLElement, point: Cartesian2, isHover: boolean) => {
+    const hasImage = !isHover && content.querySelector(".geolibre-popup-image") !== null;
     const box = document.createElement("div");
     box.className = isHover ? "geolibre-hover-tooltip" : "geolibre-identify-popup";
     Object.assign(box.style, {
       position: "absolute",
       zIndex: "10",
-      maxWidth: "min(280px, 80%)",
-      maxHeight: "60%",
+      width: hasImage ? "min(420px, calc(100% - 24px))" : "auto",
+      maxWidth: hasImage ? "min(900px, calc(100% - 24px))" : "min(280px, 80%)",
+      maxHeight: hasImage ? "calc(100% - 24px)" : "60%",
       overflow: "auto",
+      resize: hasImage ? "both" : "none",
       padding: "10px",
       borderRadius: "6px",
       background: "hsl(var(--background))",
@@ -77,18 +80,28 @@ export function installCesiumInteractions(
     box.append(content);
     host.append(box);
     const gap = 12;
-    const right = point.x + gap;
-    const below = point.y + gap;
-    box.style.left = `${
-      right + box.offsetWidth <= host.clientWidth
-        ? right
-        : Math.max(0, point.x - gap - box.offsetWidth)
-    }px`;
-    box.style.top = `${
-      below + box.offsetHeight <= host.clientHeight
-        ? below
-        : Math.max(0, point.y - gap - box.offsetHeight)
-    }px`;
+    const positionBox = () => {
+      const right = point.x + gap;
+      const below = point.y + gap;
+      box.style.left = `${
+        right + box.offsetWidth <= host.clientWidth
+          ? right
+          : Math.max(0, point.x - gap - box.offsetWidth)
+      }px`;
+      box.style.top = `${
+        below + box.offsetHeight <= host.clientHeight
+          ? below
+          : Math.max(0, point.y - gap - box.offsetHeight)
+      }px`;
+    };
+    positionBox();
+    // Lazy popup images have no intrinsic height during the first placement.
+    // Reposition on the next layout even when the browser already cached the
+    // image, and again after an uncached image loads.
+    requestAnimationFrame(positionBox);
+    for (const image of box.querySelectorAll("img")) {
+      if (!image.complete) image.addEventListener("load", positionBox, { once: true });
+    }
     return box;
   };
   handler.setInputAction((event: { endPosition: Cartesian2 }) => {

@@ -37,14 +37,22 @@ export interface IdentifyPopupOptions {
 function renderPopupValue(cell: HTMLElement, row: PopupRow): void {
   if (row.kind === "image") {
     if (isSafePopupUrl(row.value, true)) {
+      const source = row.value.trim();
+      const link = document.createElement("a");
+      link.href = source;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.className = "geolibre-popup-image-link";
+      link.title = "Open full-size image in a new tab";
       const image = document.createElement("img");
       // Trimmed, because that is the copy isSafePopupUrl actually validated —
       // as in the link branch below.
-      image.src = row.value.trim();
+      image.src = source;
       image.alt = row.label;
       image.loading = "lazy";
-      image.className = "max-h-40 max-w-full rounded";
-      cell.appendChild(image);
+      image.className = "geolibre-popup-image rounded";
+      link.appendChild(image);
+      cell.appendChild(link);
       return;
     }
     cell.textContent = row.text;
@@ -154,6 +162,7 @@ export function createIdentifyPopupRows(
   const appendRow = (row: PopupRow) => {
     const rowElement = document.createElement("div");
     rowElement.className = "grid grid-cols-[minmax(5rem,0.45fr)_1fr] gap-2 border-t py-1";
+    if (row.kind === "image") rowElement.classList.add("geolibre-identify-popup-image-row");
 
     const keyCell = document.createElement("div");
     keyCell.className = "break-words font-medium text-muted-foreground";
