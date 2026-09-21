@@ -2394,6 +2394,7 @@
       "osmInfrastructure": "Infrastructures OSM",
       "loading": "Mise à jour…",
       "updateFailed": "Échec de la mise à jour",
+      "noneInView": "Aucune entité trouvée dans la vue actuelle pour cette couche.",
       "never": "Jamais",
       "lastUpdated": "Dernière mise à jour : {{time}}",
       "speed": "Vitesse",

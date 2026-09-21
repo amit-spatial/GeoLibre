@@ -126,7 +126,7 @@ const caltrans = {
           static: {
             currentImageUpdateFrequency: "5",
             currentImageURL:
-              "https://cwwp2.dot.ca.gov/data/d4/cctv/image/tv102i580westofsr24/tv102i580westofsr24.jpg",
+              "https://cwwp2.dot.ca.gov/data/d4/cctv/image/TV102i580WestOfSR24/TV102i580WestOfSR24.jpg",
           },
         },
       },
@@ -201,12 +201,12 @@ describe("God's Eye View CCTV feeds", () => {
     assert.equal(edge.provider, "Caltrans District 4");
     assert.equal(
       edge.snapshotUrl,
-      "https://tiles.geolibre.app/cctv/caltrans/4/tv102i580westofsr24.jpg",
+      "https://tiles.geolibre.app/cctv/caltrans/4/TV102i580WestOfSR24.jpg",
     );
     assert.equal(edge.refreshMs, 10_000, "very fast upstream cadences are bounded");
     assert.equal(
       normalizeCaltransCameras(caltrans, true)[0].snapshotUrl,
-      "http://localhost/cctv/caltrans/4/tv102i580westofsr24.jpg",
+      "http://localhost/cctv/caltrans/4/TV102i580WestOfSR24.jpg",
     );
   });
 

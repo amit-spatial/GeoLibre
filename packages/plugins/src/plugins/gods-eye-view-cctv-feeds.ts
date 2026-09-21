@@ -118,7 +118,7 @@ export function normalizeCaltransCameras(payload: unknown, dev = isViteDevServer
         new RegExp(`^/data/d${district}/cctv/image/([a-z0-9-]{1,100})/\\1\\.jpg$`, "i"),
       );
       if (parsed.protocol === "https:" && parsed.hostname === "cwwp2.dot.ca.gov" && match) {
-        slug = match[1].toLowerCase();
+        slug = match[1];
       }
     } catch {
       slug = null;

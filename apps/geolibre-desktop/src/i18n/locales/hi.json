@@ -2394,6 +2394,7 @@
       "osmInfrastructure": "OSM अवसंरचना",
       "loading": "अपडेट हो रहा है…",
       "updateFailed": "अपडेट विफल",
+      "noneInView": "इस लेयर के लिए वर्तमान दृश्य में कोई फ़ीचर नहीं मिला।",
       "never": "कभी नहीं",
       "lastUpdated": "अंतिम अपडेट: {{time}}",
       "speed": "गति",

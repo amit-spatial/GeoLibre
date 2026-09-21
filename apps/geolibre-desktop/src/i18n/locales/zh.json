@@ -2346,6 +2346,7 @@
       "osmInfrastructure": "OSM 基础设施",
       "loading": "正在更新…",
       "updateFailed": "更新失败",
+      "noneInView": "当前视图中未找到该图层的任何要素。",
       "never": "从未",
       "lastUpdated": "最后更新：{{time}}",
       "speed": "速度",

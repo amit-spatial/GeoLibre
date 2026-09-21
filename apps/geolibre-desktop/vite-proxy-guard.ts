@@ -745,9 +745,8 @@ export async function proxyCaltransCctvFrameRequestGuarded(
     res.end("Invalid Caltrans camera id");
     return;
   }
-  const normalized = slug.toLowerCase();
   await proxyCctvFrameRequestGuarded(
-    `${CALTRANS_CCTV_BASE}d${district}/cctv/image/${normalized}/${normalized}.jpg`,
+    `${CALTRANS_CCTV_BASE}d${district}/cctv/image/${slug}/${slug}.jpg`,
     res,
   );
 }

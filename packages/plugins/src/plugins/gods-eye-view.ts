@@ -751,7 +751,7 @@ function statusText(feed: FeedId): string {
     const layer = useAppStore.getState().layers.find((candidate) => candidate.id === state.layerId);
     if (layer?.geojson?.features.length === 0) {
       return translate(
-        "loadEditorFeatures.noneInView",
+        "panel.godsEyeView.noneInView",
         "No features found in the current view for this layer.",
       );
     }

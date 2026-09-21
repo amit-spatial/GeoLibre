@@ -2346,6 +2346,7 @@
       "osmInfrastructure": "Hạ tầng OSM",
       "loading": "Đang cập nhật…",
       "updateFailed": "Cập nhật thất bại",
+      "noneInView": "Không tìm thấy tính năng nào trong chế độ xem hiện tại cho lớp này.",
       "never": "Chưa bao giờ",
       "lastUpdated": "Cập nhật lần cuối: {{time}}",
       "speed": "Tốc độ",

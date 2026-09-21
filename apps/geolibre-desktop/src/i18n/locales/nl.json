@@ -2394,6 +2394,7 @@
       "osmInfrastructure": "OSM-infrastructuur",
       "loading": "Bijwerken…",
       "updateFailed": "Bijwerken mislukt",
+      "noneInView": "Geen features gevonden in de huidige weergave voor deze laag.",
       "never": "Nooit",
       "lastUpdated": "Laatst bijgewerkt: {{time}}",
       "speed": "Snelheid",

@@ -2426,6 +2426,7 @@
       "osmInfrastructure": "OSM Infrastructure",
       "loading": "Updating…",
       "updateFailed": "Update failed",
+      "noneInView": "No features found in the current view for this layer.",
       "never": "Never",
       "lastUpdated": "Last updated: {{time}}",
       "speed": "Speed",

@@ -2394,6 +2394,7 @@
       "osmInfrastructure": "Infraestrutura do OSM",
       "loading": "Atualizando…",
       "updateFailed": "Falha na atualização",
+      "noneInView": "Nenhuma feição foi encontrada na visualização atual para esta camada.",
       "never": "Nunca",
       "lastUpdated": "Última atualização: {{time}}",
       "speed": "Velocidade",

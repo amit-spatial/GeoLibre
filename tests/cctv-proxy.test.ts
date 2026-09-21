@@ -346,7 +346,7 @@ describe("Caltrans CCTV edge proxy", () => {
       });
     }) as typeof fetch;
     const response = await tilesWorker.fetch(
-      new Request("https://tiles.geolibre.app/cctv/caltrans/4/tv102i580westofsr24.jpg", {
+      new Request("https://tiles.geolibre.app/cctv/caltrans/4/TV102i580WestOfSR24.jpg", {
         headers: { origin: "http://localhost:5173" },
       }),
       {},
@@ -354,7 +354,7 @@ describe("Caltrans CCTV edge proxy", () => {
     );
     assert.equal(
       requested,
-      "https://cwwp2.dot.ca.gov/data/d4/cctv/image/tv102i580westofsr24/tv102i580westofsr24.jpg",
+      "https://cwwp2.dot.ca.gov/data/d4/cctv/image/TV102i580WestOfSR24/TV102i580WestOfSR24.jpg",
     );
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("access-control-allow-origin"), "*");

@@ -2394,6 +2394,7 @@
       "osmInfrastructure": "Infrastrutture OSM",
       "loading": "Aggiornamento…",
       "updateFailed": "Aggiornamento non riuscito",
+      "noneInView": "Nessun elemento trovato nella vista attuale per questo layer.",
       "never": "Mai",
       "lastUpdated": "Ultimo aggiornamento: {{time}}",
       "speed": "Velocità",

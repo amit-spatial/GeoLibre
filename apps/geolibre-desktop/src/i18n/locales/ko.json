@@ -2346,6 +2346,7 @@
       "osmInfrastructure": "OSM 인프라",
       "loading": "업데이트 중…",
       "updateFailed": "업데이트 실패",
+      "noneInView": "이 레이어의 현재 화면에서 피처를 찾을 수 없습니다.",
       "never": "없음",
       "lastUpdated": "마지막 업데이트: {{time}}",
       "speed": "속도",

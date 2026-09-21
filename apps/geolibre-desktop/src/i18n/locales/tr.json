@@ -2394,6 +2394,7 @@
       "osmInfrastructure": "OSM Altyapısı",
       "loading": "Güncelleniyor…",
       "updateFailed": "Güncelleme başarısız",
+      "noneInView": "Bu katman için mevcut görünümde öğe bulunamadı.",
       "never": "Hiçbir zaman",
       "lastUpdated": "Son güncelleme: {{time}}",
       "speed": "Hız",

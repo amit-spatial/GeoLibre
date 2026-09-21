@@ -2394,6 +2394,7 @@
       "osmInfrastructure": "Infraestructura de OSM",
       "loading": "Actualizando…",
       "updateFailed": "Error de actualización",
+      "noneInView": "No se encontraron entidades en la vista actual para esta capa.",
       "never": "Nunca",
       "lastUpdated": "Última actualización: {{time}}",
       "speed": "Velocidad",

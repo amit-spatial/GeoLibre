@@ -2346,6 +2346,7 @@
       "osmInfrastructure": "OSM インフラ",
       "loading": "更新中…",
       "updateFailed": "更新に失敗しました",
+      "noneInView": "このレイヤーには現在のビューにフィーチャが見つかりません。",
       "never": "未更新",
       "lastUpdated": "最終更新: {{time}}",
       "speed": "速度",

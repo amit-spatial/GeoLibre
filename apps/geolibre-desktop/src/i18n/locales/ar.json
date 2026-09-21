@@ -2585,6 +2585,7 @@
       "osmInfrastructure": "البنية التحتية من OpenStreetMap",
       "loading": "جارٍ التحديث…",
       "updateFailed": "فشل التحديث",
+      "noneInView": "لم يُعثر على معالم في العرض الحالي لهذه الطبقة.",
       "never": "أبدًا",
       "lastUpdated": "آخر تحديث: {{time}}",
       "speed": "السرعة",

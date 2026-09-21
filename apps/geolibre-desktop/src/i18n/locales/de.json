@@ -2394,6 +2394,7 @@
       "osmInfrastructure": "OSM-Infrastruktur",
       "loading": "Wird aktualisiert…",
       "updateFailed": "Aktualisierung fehlgeschlagen",
+      "noneInView": "Für diese Ebene wurden im aktuellen Kartenausschnitt keine Objekte gefunden.",
       "never": "Nie",
       "lastUpdated": "Zuletzt aktualisiert: {{time}}",
       "speed": "Geschwindigkeit",
