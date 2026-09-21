@@ -25,6 +25,7 @@ export const DRIVEBC_CCTV_CATALOG_UPSTREAM = "https://www.drivebc.ca/api/webcams
 export const NSW_CCTV_CATALOG_UPSTREAM = "https://data.livetraffic.com/cameras/traffic-cam.json";
 export const NSW_CCTV_FRAME_UPSTREAM =
   "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/";
+export const CALTRANS_CCTV_UPSTREAM = "https://cwwp2.dot.ca.gov/data/";
 export const TRANSIT_UPSTREAMS = {
   mbta: "https://cdn.mbta.com/realtime/VehiclePositions.pb",
   "capmetro-austin": "https://data.texas.gov/download/eiei-9rpf/application%2Foctet-stream",
@@ -52,6 +53,7 @@ export const TILES_ALLOWED_URL_PREFIXES = [
   DRIVEBC_CCTV_CATALOG_UPSTREAM,
   NSW_CCTV_CATALOG_UPSTREAM,
   NSW_CCTV_FRAME_UPSTREAM,
+  CALTRANS_CCTV_UPSTREAM,
   ...Object.values(TRANSIT_UPSTREAMS),
   // CapMetro's fixed Socrata download endpoint redirects to a versioned file
   // path on the same public-data host.

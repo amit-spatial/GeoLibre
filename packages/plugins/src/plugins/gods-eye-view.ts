@@ -251,7 +251,7 @@ const FEED_DESCRIPTORS = {
     group: "cameras",
     label: ["panel.godsEyeView.cctv", "Public CCTV Cameras"],
     attribution:
-      "Public camera imagery: TfL Open Data; City of Calgary; Fintraffic / digitraffic.fi",
+      "Public camera imagery: TfL Open Data; City of Austin; City of Calgary; Fintraffic; Ontario 511; DriveBC; Live Traffic NSW; Caltrans",
     refreshIntervalMs: 60_000,
     timeoutMs: 30_000,
     flag: GODS_EYE_VIEW_CCTV_FLAG,
@@ -744,8 +744,18 @@ function normalizeProjectState(value: unknown): GodsEyeViewProjectState {
 
 function statusText(feed: FeedId): string {
   const state = feeds[feed];
+  const descriptor: FeedDescriptor = FEED_DESCRIPTORS[feed];
   if (state.loading) return translate("panel.godsEyeView.loading", "Updating…");
   if (state.failed) return translate("panel.godsEyeView.updateFailed", "Update failed");
+  if (state.lastUpdated && descriptor.viewportKey && state.layerId) {
+    const layer = useAppStore.getState().layers.find((candidate) => candidate.id === state.layerId);
+    if (layer?.geojson?.features.length === 0) {
+      return translate(
+        "loadEditorFeatures.noneInView",
+        "No features found in the current view for this layer.",
+      );
+    }
+  }
   const time = state.lastUpdated
     ? new Intl.DateTimeFormat(appRef?.getLocale?.(), {
         dateStyle: "short",

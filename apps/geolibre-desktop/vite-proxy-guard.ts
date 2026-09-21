@@ -55,12 +55,17 @@ const AUSTIN_CCTV_FRAME_BASE = "https://cctv.austinmobility.io/image/";
 const CALGARY_CCTV_FRAME_BASE = "https://trafficcam.calgary.ca/loc";
 const ONTARIO_CCTV_FRAME_BASE = "https://511on.ca/map/Cctv/";
 const NSW_CCTV_FRAME_BASE = "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/";
+const CALTRANS_CCTV_BASE = "https://cwwp2.dot.ca.gov/data/";
 const NSW_CCTV_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const CCTV_CATALOG_URLS = {
   ontario: "https://511on.ca/api/v2/get/cameras?format=json&lang=en",
   drivebc: "https://www.drivebc.ca/api/webcams/",
   nsw: "https://data.livetraffic.com/cameras/traffic-cam.json",
+  "caltrans-3": `${CALTRANS_CCTV_BASE}d3/cctv/cctvStatusD03.json`,
+  "caltrans-4": `${CALTRANS_CCTV_BASE}d4/cctv/cctvStatusD04.json`,
+  "caltrans-7": `${CALTRANS_CCTV_BASE}d7/cctv/cctvStatusD07.json`,
+  "caltrans-11": `${CALTRANS_CCTV_BASE}d11/cctv/cctvStatusD11.json`,
 } as const;
 const OVERPASS_EDGE_URL = "https://tiles.geolibre.app/overpass";
 const OVERPASS_MAX_REQUEST_BYTES = 20_000;
@@ -729,6 +734,24 @@ export async function proxyNswCctvFrameRequestGuarded(
   });
 }
 
+/** Fixed, bounded image relay for Caltrans public traffic-camera snapshots. */
+export async function proxyCaltransCctvFrameRequestGuarded(
+  district: string,
+  slug: string,
+  res: ServerResponse,
+): Promise<void> {
+  if (!/^(?:3|4|7|11)$/.test(district) || !/^[a-z0-9-]{1,100}$/i.test(slug)) {
+    res.statusCode = 400;
+    res.end("Invalid Caltrans camera id");
+    return;
+  }
+  const normalized = slug.toLowerCase();
+  await proxyCctvFrameRequestGuarded(
+    `${CALTRANS_CCTV_BASE}d${district}/cctv/image/${normalized}/${normalized}.jpg`,
+    res,
+  );
+}
+
 /** Fixed, bounded JSON relay for public camera catalogs without browser CORS. */
 export async function proxyCctvCatalogRequestGuarded(
   provider: string,
@@ -740,7 +763,9 @@ export async function proxyCctvCatalogRequestGuarded(
     return;
   }
   const url = CCTV_CATALOG_URLS[provider as keyof typeof CCTV_CATALOG_URLS];
-  const response = await fetchWithGuard(url, { headers: { accept: "application/json" } });
+  const response = await fetchWithGuard(url, {
+    headers: { accept: "application/json" },
+  });
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
     res.statusCode = 502;
@@ -749,10 +774,17 @@ export async function proxyCctvCatalogRequestGuarded(
   }
   const body = await readBodyWithLimit(response, 4 * 1024 * 1024);
   try {
-    const payload = JSON.parse(body.toString("utf8")) as { features?: unknown } | unknown[];
+    const payload = JSON.parse(body.toString("utf8")) as
+      | { features?: unknown; data?: unknown }
+      | unknown[];
     const features =
       payload && typeof payload === "object" && !Array.isArray(payload) ? payload.features : null;
-    const valid = provider === "nsw" ? Array.isArray(features) : Array.isArray(payload);
+    const valid =
+      provider === "nsw"
+        ? Array.isArray(features)
+        : provider.startsWith("caltrans-")
+          ? !Array.isArray(payload) && Array.isArray(payload.data)
+          : Array.isArray(payload);
     if (!valid) throw new Error();
   } catch {
     res.statusCode = 502;

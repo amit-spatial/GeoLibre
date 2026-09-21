@@ -6,6 +6,7 @@ import {
   fetchCctvCzml,
   normalizeAustinCameras,
   normalizeCalgaryCameras,
+  normalizeCaltransCameras,
   normalizeDriveBcCameras,
   normalizeFintrafficCameras,
   normalizeOntarioCameras,
@@ -71,8 +72,16 @@ const ontario = [
     Latitude: 42.9143,
     Longitude: -78.958,
     Views: [
-      { Url: "https://511on.ca/map/Cctv/2", Status: "Enabled", Description: "Looking Down" },
-      { Url: "https://511on.ca/map/Cctv/1", Status: "Enabled", Description: "Toronto Bound" },
+      {
+        Url: "https://511on.ca/map/Cctv/2",
+        Status: "Enabled",
+        Description: "Looking Down",
+      },
+      {
+        Url: "https://511on.ca/map/Cctv/1",
+        Status: "Enabled",
+        Description: "Toronto Bound",
+      },
     ],
   },
 ];
@@ -97,6 +106,29 @@ const nsw = {
         title: "5 Ways (Miranda)",
         view: "5 Ways at The Boulevarde looking west towards Sutherland.",
         href: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/5_ways_&_miranda.jpeg",
+      },
+    },
+  ],
+};
+
+const caltrans = {
+  data: [
+    {
+      cctv: {
+        inService: "true",
+        location: {
+          district: "4",
+          locationName: "TV102 -- I-580 : West of SR-24",
+          longitude: "-122.27291",
+          latitude: "37.82539",
+        },
+        imageData: {
+          static: {
+            currentImageUpdateFrequency: "5",
+            currentImageURL:
+              "https://cwwp2.dot.ca.gov/data/d4/cctv/image/tv102i580westofsr24/tv102i580westofsr24.jpg",
+          },
+        },
       },
     },
   ],
@@ -164,6 +196,20 @@ describe("God's Eye View CCTV feeds", () => {
     assert.match(fallback.name, /^Live Traffic NSW Camera /);
   });
 
+  it("normalizes pinned Caltrans frame sources", () => {
+    const edge = normalizeCaltransCameras(caltrans, false)[0];
+    assert.equal(edge.provider, "Caltrans District 4");
+    assert.equal(
+      edge.snapshotUrl,
+      "https://tiles.geolibre.app/cctv/caltrans/4/tv102i580westofsr24.jpg",
+    );
+    assert.equal(edge.refreshMs, 10_000, "very fast upstream cadences are bounded");
+    assert.equal(
+      normalizeCaltransCameras(caltrans, true)[0].snapshotUrl,
+      "http://localhost/cctv/caltrans/4/tv102i580westofsr24.jpg",
+    );
+  });
+
   it("rejects off-host and inactive camera records", () => {
     assert.deepEqual(
       normalizeTflCameras([
@@ -180,15 +226,26 @@ describe("God's Eye View CCTV feeds", () => {
     assert.deepEqual(
       normalizeAustinCameras([
         { ...austin[0], camera_status: "REMOVED" },
-        { ...austin[0], camera_id: "87", location: { type: "Point", coordinates: [-80, 25] } },
-        { ...austin[0], camera_id: "88", location: { type: "LineString", coordinates: [] } },
+        {
+          ...austin[0],
+          camera_id: "87",
+          location: { type: "Point", coordinates: [-80, 25] },
+        },
+        {
+          ...austin[0],
+          camera_id: "88",
+          location: { type: "LineString", coordinates: [] },
+        },
       ]),
       [],
     );
     assert.deepEqual(
       normalizeCalgaryCameras([
         { ...calgary[0], camera_url: { url: "https://example.com/loc86.jpg" } },
-        { ...calgary[0], camera_url: { url: "https://trafficcam.calgary.ca/loc12345.jpg" } },
+        {
+          ...calgary[0],
+          camera_url: { url: "https://trafficcam.calgary.ca/loc12345.jpg" },
+        },
       ]),
       [],
     );
@@ -197,7 +254,10 @@ describe("God's Eye View CCTV feeds", () => {
         features: [
           {
             ...fintraffic.features[0],
-            properties: { ...fintraffic.features[0].properties, collectionStatus: "REMOVED" },
+            properties: {
+              ...fintraffic.features[0].properties,
+              collectionStatus: "REMOVED",
+            },
           },
         ],
       }),
@@ -218,7 +278,10 @@ describe("God's Eye View CCTV feeds", () => {
         features: [
           {
             ...nsw.features[0],
-            properties: { ...nsw.features[0].properties, href: "https://example.com/camera.jpg" },
+            properties: {
+              ...nsw.features[0].properties,
+              href: "https://example.com/camera.jpg",
+            },
           },
         ],
       }),
@@ -234,7 +297,12 @@ describe("God's Eye View CCTV feeds", () => {
     );
     assert.deepEqual(
       normalizeFintrafficCameras({
-        features: [{ ...fintraffic.features[0], geometry: { coordinates: [24.94, false] } }],
+        features: [
+          {
+            ...fintraffic.features[0],
+            geometry: { coordinates: [24.94, false] },
+          },
+        ],
       }),
       [],
     );
@@ -292,10 +360,13 @@ describe("God's Eye View CCTV feeds", () => {
         fetch: fetcher,
         nowMs: 60_000,
       });
-      assert.equal(requested.length, 7, "immediate repeats use every catalog cache");
+      assert.equal(requested.length, 11, "immediate repeats use every catalog cache");
       currentTime += CCTV_CATALOG_FAILURE_CACHE_MS + 1;
-      await fetchCctvCzml([-0.2, 51.45, 0, 51.65], { fetch: fetcher, nowMs: 120_000 });
-      assert.equal(requested.length, 8, "failed catalogs retry after the shorter failure TTL");
+      await fetchCctvCzml([-0.2, 51.45, 0, 51.65], {
+        fetch: fetcher,
+        nowMs: 120_000,
+      });
+      assert.equal(requested.length, 12, "failed catalogs retry after the shorter failure TTL");
       assert.equal(result.attributes.features.length, 1);
       assert.equal(result.attributes.features[0].properties?.provider, "Transport for London");
       assert.notEqual(

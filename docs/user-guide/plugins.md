@@ -44,7 +44,9 @@ domain; CelesTrak requests citation; live transit combines MBTA, CapMetro,
 Metro Transit, HSL, OVapi, Entur, and TransLink feeds under their respective
 public-data terms; and the live TeleGeography cable feed is read from GeoLibre's
 Source Cooperative mirror under CC BY-NC-SA 3.0, including its NonCommercial
-restriction.
+restriction. Public camera imagery comes from TfL, Austin, Calgary, Fintraffic,
+Ontario 511, DriveBC, Live Traffic NSW, and Caltrans under each provider's
+public-data terms.
 
 ![A plugin submenu, with Activate above the four map-corner positions](https://assets.geolibre.app/images/geolibre-plugin-position-menu.webp)
 

@@ -25,6 +25,10 @@ export const ONTARIO_FRAME_EDGE_BASE = "https://tiles.geolibre.app/cctv/ontario"
 export const ONTARIO_FRAME_DEV_BASE = "/cctv/ontario";
 export const NSW_FRAME_EDGE_BASE = "https://tiles.geolibre.app/cctv/nsw";
 export const NSW_FRAME_DEV_BASE = "/cctv/nsw";
+export const CALTRANS_FRAME_EDGE_BASE = "https://tiles.geolibre.app/cctv/caltrans";
+export const CALTRANS_FRAME_DEV_BASE = "/cctv/caltrans";
+
+const CALTRANS_DISTRICTS = [3, 4, 7, 11] as const;
 
 const TFL_IMAGE_ORIGIN = "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/";
 const FINTRAFFIC_IMAGE_ORIGIN = "https://weathercam.digitraffic.fi/";
@@ -72,11 +76,76 @@ function validCoordinate(longitude: number | null, latitude: number | null): boo
   );
 }
 
-function catalogProxyUrl(provider: "ontario" | "drivebc" | "nsw", dev = isViteDevServer()): string {
+function catalogProxyUrl(
+  provider: "ontario" | "drivebc" | "nsw" | `caltrans-${(typeof CALTRANS_DISTRICTS)[number]}`,
+  dev = isViteDevServer(),
+): string {
   const base = dev
     ? `${globalThis.location?.origin ?? "http://localhost"}${CCTV_CATALOG_DEV_BASE}`
     : CCTV_CATALOG_EDGE_BASE;
   return `${base}/${provider}.json`;
+}
+
+export function normalizeCaltransCameras(payload: unknown, dev = isViteDevServer()): CctvCamera[] {
+  if (!payload || typeof payload !== "object") return [];
+  const rows = (payload as { data?: unknown }).data;
+  if (!Array.isArray(rows)) return [];
+  const cameras: CctvCamera[] = [];
+  for (const value of rows.slice(0, 2_000)) {
+    if (!value || typeof value !== "object") continue;
+    const cctv = (value as { cctv?: unknown }).cctv;
+    if (!cctv || typeof cctv !== "object" || Array.isArray(cctv)) continue;
+    const record = cctv as Record<string, unknown>;
+    if (String(record.inService).toLowerCase() !== "true") continue;
+    const location = (record.location ?? {}) as Record<string, unknown>;
+    const imageData = (record.imageData ?? {}) as Record<string, unknown>;
+    const staticImage = (imageData.static ?? {}) as Record<string, unknown>;
+    const longitude = finite(location.longitude);
+    const latitude = finite(location.latitude);
+    const district = finite(location.district);
+    const source = text(staticImage.currentImageURL);
+    if (
+      !validCoordinate(longitude, latitude) ||
+      district === null ||
+      !CALTRANS_DISTRICTS.includes(district as (typeof CALTRANS_DISTRICTS)[number])
+    ) {
+      continue;
+    }
+    let slug: string | null = null;
+    try {
+      const parsed = new URL(source ?? "");
+      const match = parsed.pathname.match(
+        new RegExp(`^/data/d${district}/cctv/image/([a-z0-9-]{1,100})/\\1\\.jpg$`, "i"),
+      );
+      if (parsed.protocol === "https:" && parsed.hostname === "cwwp2.dot.ca.gov" && match) {
+        slug = match[1].toLowerCase();
+      }
+    } catch {
+      slug = null;
+    }
+    if (!slug) continue;
+    const base = dev
+      ? `${globalThis.location?.origin ?? "http://localhost"}${CALTRANS_FRAME_DEV_BASE}`
+      : CALTRANS_FRAME_EDGE_BASE;
+    const rawName = text(location.locationName);
+    cameras.push({
+      id: `caltrans-${district}-${slug}`,
+      name:
+        rawName && rawName.length <= 160 && !/[\r\n]/.test(rawName)
+          ? rawName
+          : `Caltrans Camera ${slug}`,
+      provider: `Caltrans District ${district}`,
+      longitude: longitude as number,
+      latitude: latitude as number,
+      snapshotUrl: `${base}/${district}/${slug}.jpg`,
+      attribution: "Caltrans CCTV Map",
+      refreshMs: Math.max(
+        10_000,
+        Math.min(5 * 60_000, (finite(staticImage.currentImageUpdateFrequency) ?? 60) * 1_000),
+      ),
+    });
+  }
+  return cameras;
 }
 
 function refreshedUrl(url: string, refreshMs: number, nowMs: number): string {
@@ -493,7 +562,10 @@ export function cctvCamerasToCzml(
     features.push({
       type: "Feature",
       id: `cctv-${camera.id}`,
-      geometry: { type: "Point", coordinates: [camera.longitude, camera.latitude] },
+      geometry: {
+        type: "Point",
+        coordinates: [camera.longitude, camera.latitude],
+      },
       properties,
     });
   }
@@ -590,6 +662,14 @@ export async function fetchCctvCzml(
     fetchCatalog(catalogProxyUrl("ontario"), fetcher, options.signal, normalizeOntarioCameras),
     fetchCatalog(catalogProxyUrl("drivebc"), fetcher, options.signal, normalizeDriveBcCameras),
     fetchCatalog(catalogProxyUrl("nsw"), fetcher, options.signal, normalizeNswCameras),
+    ...CALTRANS_DISTRICTS.map((district) =>
+      fetchCatalog(
+        catalogProxyUrl(`caltrans-${district}`),
+        fetcher,
+        options.signal,
+        normalizeCaltransCameras,
+      ),
+    ),
   ]);
   if (options.signal?.aborted) {
     throw options.signal.reason ?? new DOMException("CCTV request aborted", "AbortError");

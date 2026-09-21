@@ -153,6 +153,18 @@ describe("tiles allowlisted fetch", () => {
     assert.equal(isAllowedTilesUpstreamUrl("https://data.livetraffic.com/events.json"), false);
   });
 
+  it("accepts only Caltrans public camera data paths", () => {
+    assert.equal(
+      isAllowedTilesUpstreamUrl("https://cwwp2.dot.ca.gov/data/d4/cctv/cctvStatusD04.json"),
+      true,
+    );
+    assert.equal(
+      isAllowedTilesUpstreamUrl("https://cwwp2.dot.ca.gov/data/d4/cctv/image/camera/camera.jpg"),
+      true,
+    );
+    assert.equal(isAllowedTilesUpstreamUrl("https://cwwp2.dot.ca.gov/admin"), false);
+  });
+
   it("accepts the fixed transit feeds and CapMetro's versioned redirect path", () => {
     assert.equal(
       isAllowedTilesUpstreamUrl("https://cdn.mbta.com/realtime/VehiclePositions.pb"),

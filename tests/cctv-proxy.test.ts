@@ -138,7 +138,10 @@ describe("Calgary CCTV edge proxy", () => {
     globalThis.fetch = (async () =>
       new Response(new Uint8Array(), {
         status: 200,
-        headers: { "content-type": "image/jpeg", "content-length": String(5 * 1024 * 1024 + 1) },
+        headers: {
+          "content-type": "image/jpeg",
+          "content-length": String(5 * 1024 * 1024 + 1),
+        },
       })) as typeof fetch;
     const oversized = await tilesWorker.fetch(
       new Request("https://tiles.geolibre.app/cctv/calgary/86.jpg", {
@@ -198,12 +201,17 @@ describe("CCTV catalog edge proxy", () => {
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
       requested.push(url);
-      return new Response(url.includes("livetraffic") ? '{"features":[]}' : "[]", {
+      const body = url.includes("livetraffic")
+        ? '{"features":[]}'
+        : url.includes("dot.ca.gov")
+          ? '{"data":[]}'
+          : "[]";
+      return new Response(body, {
         status: 200,
         headers: { "content-type": "application/json" },
       });
     }) as typeof fetch;
-    for (const provider of ["ontario", "drivebc", "nsw"]) {
+    for (const provider of ["ontario", "drivebc", "nsw", "caltrans-4"]) {
       const response = await tilesWorker.fetch(
         new Request(`https://tiles.geolibre.app/cctv/catalog/${provider}.json`, {
           headers: { origin: "http://localhost:5173" },
@@ -219,6 +227,7 @@ describe("CCTV catalog edge proxy", () => {
       "https://511on.ca/api/v2/get/cameras?format=json&lang=en",
       "https://www.drivebc.ca/api/webcams/",
       "https://data.livetraffic.com/cameras/traffic-cam.json",
+      "https://cwwp2.dot.ca.gov/data/d4/cctv/cctvStatusD04.json",
     ]);
   });
 
@@ -226,7 +235,10 @@ describe("CCTV catalog edge proxy", () => {
     let fetched = false;
     globalThis.fetch = (async () => {
       fetched = true;
-      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+      return new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }) as typeof fetch;
     const forbidden = await tilesWorker.fetch(
       new Request("https://tiles.geolibre.app/cctv/catalog/ontario.json", {
@@ -320,5 +332,31 @@ describe("NSW CCTV edge proxy", () => {
     assert.match(userAgent, /Mozilla\/5\.0/);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "image/jpeg");
+  });
+});
+
+describe("Caltrans CCTV edge proxy", () => {
+  it("relays a pinned district frame with browser-readable CORS", async () => {
+    let requested = "";
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      requested = String(input);
+      return new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { "content-type": "image/jpeg" },
+      });
+    }) as typeof fetch;
+    const response = await tilesWorker.fetch(
+      new Request("https://tiles.geolibre.app/cctv/caltrans/4/tv102i580westofsr24.jpg", {
+        headers: { origin: "http://localhost:5173" },
+      }),
+      {},
+      {} as ExecutionContext,
+    );
+    assert.equal(
+      requested,
+      "https://cwwp2.dot.ca.gov/data/d4/cctv/image/tv102i580westofsr24/tv102i580westofsr24.jpg",
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("access-control-allow-origin"), "*");
   });
 });

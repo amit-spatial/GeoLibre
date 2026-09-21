@@ -40,6 +40,7 @@ import {
   ADSBDB_AIRCRAFT_UPSTREAM,
   AUSTIN_CCTV_FRAME_UPSTREAM,
   CALGARY_CCTV_FRAME_UPSTREAM,
+  CALTRANS_CCTV_UPSTREAM,
   DRIVEBC_CCTV_CATALOG_UPSTREAM,
   fetchAllowlistedUpstream,
   HDX_CKAN_SEARCH_UPSTREAM,
@@ -130,7 +131,8 @@ const CALGARY_CCTV_PATH = /^\/cctv\/calgary\/(\d{1,4})\.jpg$/;
 const AUSTIN_CCTV_PATH = /^\/cctv\/austin\/(\d{1,4})\.jpg$/;
 const ONTARIO_CCTV_PATH = /^\/cctv\/ontario\/([A-Za-z0-9_.-]{1,64})$/;
 const NSW_CCTV_PATH = /^\/cctv\/nsw\/((?:[A-Za-z0-9_.-]|%[0-9A-Fa-f]{2}){1,300})$/;
-const CCTV_CATALOG_PATH = /^\/cctv\/catalog\/(ontario|drivebc|nsw)\.json$/;
+const CALTRANS_CCTV_PATH = /^\/cctv\/caltrans\/(3|4|7|11)\/([a-z0-9-]{1,100})\.jpg$/;
+const CCTV_CATALOG_PATH = /^\/cctv\/catalog\/(ontario|drivebc|nsw|caltrans-(?:3|4|7|11))\.json$/;
 const CCTV_FRAME_MAX_BODY_BYTES = 5 * 1024 * 1024;
 const CCTV_UPSTREAM_TIMEOUT_MS = 30_000;
 const CCTV_CATALOG_MAX_BODY_BYTES = 4 * 1024 * 1024;
@@ -807,13 +809,19 @@ async function handleAircraftFeed(
         throw new Error("Malformed aircraft feed");
       }
     } catch {
-      return new Response("Bad Gateway", { status: 502, headers: CORS_HEADERS });
+      return new Response("Bad Gateway", {
+        status: 502,
+        headers: CORS_HEADERS,
+      });
     }
   }
   const headers = new Headers(CORS_HEADERS);
   headers.set("content-type", "application/json; charset=utf-8");
   headers.set("cache-control", originResponse.ok ? `public, max-age=${cacheSeconds}` : "no-store");
-  const response = new Response(body, { status: originResponse.status, headers });
+  const response = new Response(body, {
+    status: originResponse.status,
+    headers,
+  });
   // Cache only after the bounded body has passed schema validation. Using the
   // Cache API here (instead of `cf.cacheEverything` on the upstream fetch)
   // prevents a malformed third-party response from being cached before the
@@ -946,11 +954,17 @@ async function handleAdsbdbAircraft(
         throw new Error("Malformed ADSBDB response");
       }
     } catch {
-      return new Response("Bad Gateway", { status: 502, headers: CORS_HEADERS });
+      return new Response("Bad Gateway", {
+        status: 502,
+        headers: CORS_HEADERS,
+      });
     }
   }
   headers.set("cache-control", originResponse.ok ? "public, max-age=86400" : "no-store");
-  const response = new Response(body, { status: originResponse.status, headers });
+  const response = new Response(body, {
+    status: originResponse.status,
+    headers,
+  });
   if (originResponse.ok && cache) ctx.waitUntil(cache.put(request, response.clone()));
   return response;
 }
@@ -977,7 +991,10 @@ async function handleCctvFrame(
     const contentType = originResponse.headers.get("content-type")?.split(";", 1)[0].trim() ?? "";
     const body = await readResponseBytesWithLimit(originResponse, CCTV_FRAME_MAX_BODY_BYTES);
     if (!originResponse.ok || !body || !["image/jpeg", "image/png"].includes(contentType)) {
-      return new Response("Bad Gateway", { status: 502, headers: CORS_HEADERS });
+      return new Response("Bad Gateway", {
+        status: 502,
+        headers: CORS_HEADERS,
+      });
     }
     const headers = new Headers(CORS_HEADERS);
     headers.set("content-type", contentType);
@@ -995,7 +1012,7 @@ async function handleCctvFrame(
 async function handleCctvCatalog(
   request: Request,
   ctx: ExecutionContext,
-  provider: "ontario" | "drivebc" | "nsw",
+  provider: "ontario" | "drivebc" | "nsw" | `caltrans-${3 | 4 | 7 | 11}`,
 ): Promise<Response> {
   if (!isAllowedProxyOrigin(request.headers.get("origin"))) {
     return new Response("Forbidden", { status: 403, headers: CORS_HEADERS });
@@ -1003,11 +1020,17 @@ async function handleCctvCatalog(
   const cache = typeof caches === "undefined" ? null : caches.default;
   const cached = await cache?.match(request);
   if (cached) return cached;
-  const upstream = {
+  const upstreams: Record<string, string> = {
     ontario: `${ONTARIO_CCTV_CATALOG_UPSTREAM}?format=json&lang=en`,
     drivebc: DRIVEBC_CCTV_CATALOG_UPSTREAM,
     nsw: NSW_CCTV_CATALOG_UPSTREAM,
-  }[provider];
+  };
+  const caltransMatch = /^caltrans-(3|4|7|11)$/.exec(provider);
+  const upstream = caltransMatch
+    ? `${CALTRANS_CCTV_UPSTREAM}d${
+        caltransMatch[1]
+      }/cctv/cctvStatusD${caltransMatch[1].padStart(2, "0")}.json`
+    : upstreams[provider];
   const upstreamController = new AbortController();
   const upstreamTimeout = setTimeout(() => upstreamController.abort(), CCTV_UPSTREAM_TIMEOUT_MS);
   try {
@@ -1017,18 +1040,29 @@ async function handleCctvCatalog(
     });
     const body = await readResponseBytesWithLimit(originResponse, CCTV_CATALOG_MAX_BODY_BYTES);
     if (!originResponse.ok || !body) {
-      return new Response("Bad Gateway", { status: 502, headers: CORS_HEADERS });
+      return new Response("Bad Gateway", {
+        status: 502,
+        headers: CORS_HEADERS,
+      });
     }
     try {
       const payload = JSON.parse(new TextDecoder().decode(body)) as
-        | { features?: unknown }
+        | { features?: unknown; data?: unknown }
         | unknown[];
       const features =
         payload && typeof payload === "object" && !Array.isArray(payload) ? payload.features : null;
-      const valid = provider === "nsw" ? Array.isArray(features) : Array.isArray(payload);
+      const valid =
+        provider === "nsw"
+          ? Array.isArray(features)
+          : provider.startsWith("caltrans-")
+            ? !Array.isArray(payload) && Array.isArray(payload.data)
+            : Array.isArray(payload);
       if (!valid) throw new Error();
     } catch {
-      return new Response("Bad Gateway", { status: 502, headers: CORS_HEADERS });
+      return new Response("Bad Gateway", {
+        status: 502,
+        headers: CORS_HEADERS,
+      });
     }
     const headers = new Headers(CORS_HEADERS);
     headers.set("content-type", "application/json; charset=utf-8");
@@ -1332,7 +1366,11 @@ export const tilesWorker = {
 
     const cctvCatalogMatch = CCTV_CATALOG_PATH.exec(url.pathname);
     if (cctvCatalogMatch) {
-      return handleCctvCatalog(request, ctx, cctvCatalogMatch[1] as "ontario" | "drivebc" | "nsw");
+      return handleCctvCatalog(
+        request,
+        ctx,
+        cctvCatalogMatch[1] as "ontario" | "drivebc" | "nsw" | `caltrans-${3 | 4 | 7 | 11}`,
+      );
     }
 
     const ontarioCctvMatch = ONTARIO_CCTV_PATH.exec(url.pathname);
@@ -1350,16 +1388,32 @@ export const tilesWorker = {
       try {
         frameId = decodeURIComponent(nswCctvMatch[1]);
       } catch {
-        return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
+        return new Response("Not Found", {
+          status: 404,
+          headers: CORS_HEADERS,
+        });
       }
       if (!/^[a-z0-9_.&-]{1,100}\.(?:jpe?g)$/i.test(frameId)) {
-        return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
+        return new Response("Not Found", {
+          status: 404,
+          headers: CORS_HEADERS,
+        });
       }
       return handleCctvFrame(
         request,
         ctx,
         `${NSW_CCTV_FRAME_UPSTREAM}${encodeURIComponent(frameId)}`,
         { "user-agent": NSW_CCTV_USER_AGENT },
+      );
+    }
+
+    const caltransCctvMatch = CALTRANS_CCTV_PATH.exec(url.pathname);
+    if (caltransCctvMatch) {
+      const [, district, slug] = caltransCctvMatch;
+      return handleCctvFrame(
+        request,
+        ctx,
+        `${CALTRANS_CCTV_UPSTREAM}d${district}/cctv/image/${slug}/${slug}.jpg`,
       );
     }
 
@@ -1562,9 +1616,9 @@ async function handleWmsTile(
     // here renders as a blank tile, so log it — otherwise a typo'd map/layer in
     // a WMS_DATASETS entry would fail silently as an all-blank basemap in prod.
     console.warn(
-      `WMS reproject miss: dataset=${dataset} status=${origin.status} content-type=${
-        contentType || "?"
-      }`,
+      `WMS reproject miss: dataset=${dataset} status=${
+        origin.status
+      } content-type=${contentType || "?"}`,
     );
     await origin.arrayBuffer().catch(() => undefined);
     const resp = pngResponse(transparentTile(), NEGATIVE_CACHE_CONTROL);
