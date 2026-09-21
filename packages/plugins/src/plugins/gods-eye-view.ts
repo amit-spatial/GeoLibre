@@ -26,6 +26,7 @@ import {
   TRAFFIC_MAX_VIEW_SPAN_DEGREES,
   TRAFFIC_QUERY_SNAP_DEGREES,
   viewportBoundsKey,
+  viewportQueryBounds,
 } from "./gods-eye-view-viewport-feeds";
 import { OVERPASS_REQUEST_TIMEOUT_MS } from "./osm-downloader-api";
 import { fetchMilitaryFlightsCzml, fetchOpenSkyCzml } from "./gods-eye-view-aircraft-feeds";
@@ -83,6 +84,7 @@ interface FeedDescriptor {
   defaultEnabled: boolean;
   ownsClockWindow?: boolean;
   viewportKey?: (bounds: FeedFetchContext["bounds"], zoom: number | null) => string;
+  hasQueryableViewport?: (bounds: FeedFetchContext["bounds"]) => boolean;
   fetch: (context: FeedFetchContext) => Promise<GodsEyeViewFeedPayload>;
 }
 
@@ -170,6 +172,9 @@ const FEED_DESCRIPTORS = {
     defaultEnabled: false,
     viewportKey: (bounds) =>
       viewportBoundsKey(bounds, TRAFFIC_MAX_VIEW_SPAN_DEGREES, TRAFFIC_QUERY_SNAP_DEGREES),
+    hasQueryableViewport: (bounds) =>
+      viewportQueryBounds(bounds, TRAFFIC_MAX_VIEW_SPAN_DEGREES, TRAFFIC_QUERY_SNAP_DEGREES) !==
+      null,
     fetch: ({ bounds, signal, window }) => fetchStreetTrafficCzml(bounds, window, { signal }),
   },
   osmInfrastructure: {
@@ -247,6 +252,8 @@ const FEED_DESCRIPTORS = {
     defaultEnabled: false,
     viewportKey: (bounds) =>
       viewportBoundsKey(bounds, ALPR_MAX_VIEW_SPAN_DEGREES, ALPR_QUERY_SNAP_DEGREES),
+    hasQueryableViewport: (bounds) =>
+      viewportQueryBounds(bounds, ALPR_MAX_VIEW_SPAN_DEGREES, ALPR_QUERY_SNAP_DEGREES) !== null,
     fetch: ({ bounds, signal }) => fetchMappedAlprCzml(bounds, { signal }),
   },
   cctv: {
@@ -260,6 +267,8 @@ const FEED_DESCRIPTORS = {
     defaultEnabled: false,
     viewportKey: (bounds, zoom) =>
       `${viewportBoundsKey(bounds, CCTV_MAX_VIEW_SPAN_DEGREES, CCTV_QUERY_SNAP_DEGREES)}|preview:${cctvPreviewsVisibleAtZoom(zoom)}`,
+    hasQueryableViewport: (bounds) =>
+      viewportQueryBounds(bounds, CCTV_MAX_VIEW_SPAN_DEGREES, CCTV_QUERY_SNAP_DEGREES) !== null,
     fetch: ({ bounds, signal, zoom }) =>
       fetchCctvCzml(bounds, { signal, showPreviews: cctvPreviewsVisibleAtZoom(zoom) }),
   },
@@ -755,7 +764,11 @@ function statusText(feed: FeedId): string {
   if (state.failed) return translate("panel.godsEyeView.updateFailed", "Update failed");
   if (state.lastUpdated && descriptor.viewportKey && state.layerId) {
     const layer = useAppStore.getState().layers.find((candidate) => candidate.id === state.layerId);
-    if (layer?.geojson?.features.length === 0) {
+    const bounds = appRef?.getViewBounds?.() ?? null;
+    if (
+      layer?.geojson?.features.length === 0 &&
+      (descriptor.hasQueryableViewport?.(bounds) ?? true)
+    ) {
       return translate(
         "panel.godsEyeView.noneInView",
         "No features found in the current view for this layer.",

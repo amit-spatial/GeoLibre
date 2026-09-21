@@ -18,6 +18,7 @@ export function installCesiumInteractions(
   const handler = new C.ScreenSpaceEventHandler(viewer.canvas);
   const host = viewer.canvas.parentElement!;
   let popup: HTMLElement | null = null;
+  let popupResizeObserver: ResizeObserver | null = null;
   let hover: HTMLElement | null = null;
   let pending: Cartesian2 | null = null;
   // Where the cursor last rested over the canvas. Outlives `pending`, which a
@@ -45,6 +46,8 @@ export function installCesiumInteractions(
     hover = null;
   };
   const clearPopup = () => {
+    popupResizeObserver?.disconnect();
+    popupResizeObserver = null;
     popup?.remove();
     popup = null;
   };
@@ -102,6 +105,11 @@ export function installCesiumInteractions(
     requestAnimationFrame(positionBox);
     for (const image of box.querySelectorAll("img")) {
       if (!image.complete) image.addEventListener("load", positionBox, { once: true });
+    }
+    if (hasImage && typeof ResizeObserver !== "undefined") {
+      popupResizeObserver?.disconnect();
+      popupResizeObserver = new ResizeObserver(positionBox);
+      popupResizeObserver.observe(box);
     }
     return box;
   };

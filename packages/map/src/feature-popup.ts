@@ -33,6 +33,7 @@ function openPopupImageViewer(source: string, alt: string): void {
   const overlay = document.createElement("div");
   overlay.className = "geolibre-photo-fullscreen geolibre-popup-image-viewer";
   overlay.role = "dialog";
+  overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", alt);
 
   const image = document.createElement("img");
@@ -44,7 +45,7 @@ function openPopupImageViewer(source: string, alt: string): void {
   closeButton.type = "button";
   closeButton.className = "geolibre-photo-fullscreen-close";
   closeButton.textContent = "×";
-  closeButton.setAttribute("aria-label", "Close enlarged image");
+  closeButton.setAttribute("aria-label", "Close");
 
   const close = () => {
     document.removeEventListener("keydown", onKeyDown);
@@ -74,19 +75,27 @@ function renderPopupValue(cell: HTMLElement, row: PopupRow): void {
   if (row.kind === "image") {
     if (isSafePopupUrl(row.value, true)) {
       const source = row.value.trim();
-      const link = document.createElement("a");
-      link.href = source;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.className = "geolibre-popup-image-link";
-      link.title = "Click to enlarge";
-      link.addEventListener("click", (event) => {
+      const isRemoteImage = /^https?:\/\//i.test(source);
+      const trigger = isRemoteImage
+        ? document.createElement("a")
+        : document.createElement("button");
+      if (trigger instanceof HTMLAnchorElement) {
+        trigger.href = source;
+        trigger.target = "_blank";
+        trigger.rel = "noopener noreferrer";
+      } else {
+        trigger.type = "button";
+      }
+      trigger.className = "geolibre-popup-image-link";
+      trigger.addEventListener("click", (event) => {
+        const mouseEvent = event as MouseEvent;
         if (
-          event.button !== 0 ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.shiftKey ||
-          event.altKey
+          isRemoteImage &&
+          (mouseEvent.button !== 0 ||
+            mouseEvent.metaKey ||
+            mouseEvent.ctrlKey ||
+            mouseEvent.shiftKey ||
+            mouseEvent.altKey)
         ) {
           return;
         }
@@ -100,8 +109,8 @@ function renderPopupValue(cell: HTMLElement, row: PopupRow): void {
       image.alt = row.label;
       image.loading = "lazy";
       image.className = "geolibre-popup-image rounded";
-      link.appendChild(image);
-      cell.appendChild(link);
+      trigger.appendChild(image);
+      cell.appendChild(trigger);
       return;
     }
     cell.textContent = row.text;

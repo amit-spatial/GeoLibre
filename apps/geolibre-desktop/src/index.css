@@ -2442,6 +2442,9 @@ body,
 .geolibre-popup-image-link {
   display: block;
   width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: zoom-in;
 }
 
