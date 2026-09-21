@@ -315,13 +315,13 @@ describe("God's Eye View CCTV feeds", () => {
     );
   });
 
-  it("creates camera previews with high-contrast anchors and a refreshable popup", () => {
+  it("creates camera previews with a high-contrast badge and refreshable popup", () => {
     const camera = normalizeTflCameras(tfl)[0];
     const result = cctvCamerasToCzml([camera], 120_000);
     const packet = result.packets[1] as {
       billboard: { image: string; width: number; pixelOffset: { cartesian2: number[] } };
       label: { text: string; backgroundColor: { rgba: number[] } };
-      point: { pixelSize: number; color: { rgba: number[] }; outlineWidth: number };
+      point?: unknown;
       properties: { snapshot: string };
     };
     assert.match(packet.billboard.image, /geolibre_frame=2$/);
@@ -329,9 +329,7 @@ describe("God's Eye View CCTV feeds", () => {
     assert.deepEqual(packet.billboard.pixelOffset.cartesian2, [0, -24]);
     assert.equal(packet.label.text, "CAM");
     assert.deepEqual(packet.label.backgroundColor.rgba, [34, 211, 238, 255]);
-    assert.equal(packet.point.pixelSize, 18);
-    assert.deepEqual(packet.point.color.rgba, [34, 211, 238, 255]);
-    assert.equal(packet.point.outlineWidth, 4);
+    assert.equal(packet.point, undefined);
     assert.equal(packet.properties.snapshot, packet.billboard.image);
     assert.equal(result.attributes.features[0].properties?.provider, "Transport for London");
   });

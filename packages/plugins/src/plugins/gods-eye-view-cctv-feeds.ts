@@ -554,13 +554,6 @@ export function cctvCamerasToCzml(
       name: camera.name,
       position: { cartographicDegrees: [camera.longitude, camera.latitude, 4] },
       properties,
-      point: {
-        pixelSize: 18,
-        color: { rgba: [34, 211, 238, 255] },
-        outlineColor: { rgba: [8, 15, 24, 255] },
-        outlineWidth: 4,
-        heightReference: "RELATIVE_TO_GROUND",
-      },
       ...(showPreviews
         ? {
             billboard: {
@@ -587,7 +580,15 @@ export function cctvCamerasToCzml(
               distanceDisplayCondition: { distanceDisplayCondition: [0, 300_000] },
             },
           }
-        : {}),
+        : {
+            point: {
+              pixelSize: 18,
+              color: { rgba: [34, 211, 238, 255] },
+              outlineColor: { rgba: [8, 15, 24, 255] },
+              outlineWidth: 4,
+              heightReference: "RELATIVE_TO_GROUND",
+            },
+          }),
     });
     features.push({
       type: "Feature",
