@@ -7,6 +7,11 @@ import { viewportQueryBounds, type ViewBounds } from "./gods-eye-view-viewport-f
 export const CCTV_MAX_VIEW_SPAN_DEGREES = 5;
 export const CCTV_QUERY_SNAP_DEGREES = 0.1;
 export const CCTV_MAX_CAMERAS = 12;
+
+/** Ambient camera previews stay hidden until the map is past street-level zoom 13. */
+export function cctvPreviewsVisibleAtZoom(zoom: number | null): boolean {
+  return zoom !== null && Number.isFinite(zoom) && zoom > 13;
+}
 export const CCTV_CATALOG_CACHE_MS = 15 * 60_000;
 export const CCTV_CATALOG_FAILURE_CACHE_MS = 60_000;
 
@@ -531,6 +536,7 @@ function selectViewportCameras(cameras: CctvCamera[], bounds: ViewBounds): CctvC
 export function cctvCamerasToCzml(
   cameras: CctvCamera[],
   nowMs = Date.now(),
+  showPreviews = true,
 ): GodsEyeViewFeedPayload {
   const packets: CzmlPacket[] = [{ id: "document", name: "Public CCTV Cameras", version: "1.0" }];
   const features: Feature<Point>[] = [];
@@ -548,16 +554,40 @@ export function cctvCamerasToCzml(
       name: camera.name,
       position: { cartographicDegrees: [camera.longitude, camera.latitude, 4] },
       properties,
-      billboard: {
-        image: snapshot,
-        width: 80,
-        height: 45,
-        verticalOrigin: "BOTTOM",
+      point: {
+        pixelSize: 18,
+        color: { rgba: [34, 211, 238, 255] },
+        outlineColor: { rgba: [8, 15, 24, 255] },
+        outlineWidth: 4,
         heightReference: "RELATIVE_TO_GROUND",
-        pixelOffset: { cartesian2: [0, -8] },
-        scaleByDistance: { nearFarScalar: [500, 0.8, 50_000, 0.25] },
-        distanceDisplayCondition: { distanceDisplayCondition: [0, 300_000] },
       },
+      ...(showPreviews
+        ? {
+            billboard: {
+              image: snapshot,
+              width: 96,
+              height: 54,
+              verticalOrigin: "BOTTOM",
+              heightReference: "RELATIVE_TO_GROUND",
+              pixelOffset: { cartesian2: [0, -24] },
+              scaleByDistance: { nearFarScalar: [500, 0.9, 50_000, 0.3] },
+              distanceDisplayCondition: { distanceDisplayCondition: [0, 300_000] },
+            },
+            label: {
+              text: "CAM",
+              font: "700 10px sans-serif",
+              style: "FILL",
+              fillColor: { rgba: [8, 15, 24, 255] },
+              showBackground: true,
+              backgroundColor: { rgba: [34, 211, 238, 255] },
+              backgroundPadding: { cartesian2: [5, 3] },
+              pixelOffset: { cartesian2: [0, -22] },
+              verticalOrigin: "TOP",
+              heightReference: "RELATIVE_TO_GROUND",
+              distanceDisplayCondition: { distanceDisplayCondition: [0, 300_000] },
+            },
+          }
+        : {}),
     });
     features.push({
       type: "Feature",
@@ -640,14 +670,19 @@ async function fetchCatalog<T>(
 
 export async function fetchCctvCzml(
   bounds: ViewBounds | null,
-  options: { fetch?: typeof fetch; signal?: AbortSignal; nowMs?: number } = {},
+  options: {
+    fetch?: typeof fetch;
+    signal?: AbortSignal;
+    nowMs?: number;
+    showPreviews?: boolean;
+  } = {},
 ): Promise<GodsEyeViewFeedPayload> {
   const queryBounds = viewportQueryBounds(
     bounds,
     CCTV_MAX_VIEW_SPAN_DEGREES,
     CCTV_QUERY_SNAP_DEGREES,
   );
-  if (!queryBounds) return cctvCamerasToCzml([], options.nowMs);
+  if (!queryBounds) return cctvCamerasToCzml([], options.nowMs, options.showPreviews);
   const fetcher = options.fetch ?? fetch;
   // These providers expose only bounded global/city catalogs, not bbox APIs.
   // Cache each normalized catalog, then apply the snapped viewport locally.
@@ -678,5 +713,9 @@ export async function fetchCctvCzml(
   if (!results.some((result) => result.status === "fulfilled")) {
     throw new Error("Every CCTV provider failed");
   }
-  return cctvCamerasToCzml(selectViewportCameras(cameras, queryBounds), options.nowMs);
+  return cctvCamerasToCzml(
+    selectViewportCameras(cameras, queryBounds),
+    options.nowMs,
+    options.showPreviews,
+  );
 }

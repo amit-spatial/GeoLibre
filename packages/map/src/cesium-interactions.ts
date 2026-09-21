@@ -52,6 +52,7 @@ export function installCesiumInteractions(
     const hasImage = !isHover && content.querySelector(".geolibre-popup-image") !== null;
     const box = document.createElement("div");
     box.className = isHover ? "geolibre-hover-tooltip" : "geolibre-identify-popup";
+    if (hasImage) box.classList.add("geolibre-identify-image-popup");
     Object.assign(box.style, {
       position: "absolute",
       zIndex: "10",

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   CCTV_CATALOG_FAILURE_CACHE_MS,
   cctvCamerasToCzml,
+  cctvPreviewsVisibleAtZoom,
   fetchCctvCzml,
   normalizeAustinCameras,
   normalizeCalgaryCameras,
@@ -135,6 +136,12 @@ const caltrans = {
 };
 
 describe("God's Eye View CCTV feeds", () => {
+  it("shows ambient previews only above zoom 13", () => {
+    assert.equal(cctvPreviewsVisibleAtZoom(null), false);
+    assert.equal(cctvPreviewsVisibleAtZoom(13), false);
+    assert.equal(cctvPreviewsVisibleAtZoom(13.0001), true);
+  });
+
   it("normalizes pinned TfL, Austin, Calgary, and Fintraffic frame sources", () => {
     assert.equal(normalizeTflCameras(tfl)[0].id, "tfl-00001.00001");
     assert.equal(
@@ -308,17 +315,40 @@ describe("God's Eye View CCTV feeds", () => {
     );
   });
 
-  it("creates refreshable image billboards and an image popup property", () => {
+  it("creates camera previews with high-contrast anchors and a refreshable popup", () => {
     const camera = normalizeTflCameras(tfl)[0];
     const result = cctvCamerasToCzml([camera], 120_000);
     const packet = result.packets[1] as {
-      billboard: { image: string; width: number };
+      billboard: { image: string; width: number; pixelOffset: { cartesian2: number[] } };
+      label: { text: string; backgroundColor: { rgba: number[] } };
+      point: { pixelSize: number; color: { rgba: number[] }; outlineWidth: number };
       properties: { snapshot: string };
     };
     assert.match(packet.billboard.image, /geolibre_frame=2$/);
-    assert.equal(packet.billboard.width, 80);
+    assert.equal(packet.billboard.width, 96);
+    assert.deepEqual(packet.billboard.pixelOffset.cartesian2, [0, -24]);
+    assert.equal(packet.label.text, "CAM");
+    assert.deepEqual(packet.label.backgroundColor.rgba, [34, 211, 238, 255]);
+    assert.equal(packet.point.pixelSize, 18);
+    assert.deepEqual(packet.point.color.rgba, [34, 211, 238, 255]);
+    assert.equal(packet.point.outlineWidth, 4);
     assert.equal(packet.properties.snapshot, packet.billboard.image);
     assert.equal(result.attributes.features[0].properties?.provider, "Transport for London");
+  });
+
+  it("keeps camera anchors but hides preview billboards at overview zooms", () => {
+    const camera = normalizeTflCameras(tfl)[0];
+    const result = cctvCamerasToCzml([camera], 120_000, false);
+    const packet = result.packets[1] as {
+      billboard?: unknown;
+      label?: unknown;
+      point: { pixelSize: number };
+      properties: { snapshot: string };
+    };
+    assert.equal(packet.billboard, undefined);
+    assert.equal(packet.label, undefined);
+    assert.equal(packet.point.pixelSize, 18);
+    assert.match(packet.properties.snapshot, /geolibre_frame=2$/);
   });
 
   it("stops reading a chunked catalog once it crosses the byte ceiling", async () => {

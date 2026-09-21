@@ -27,6 +27,42 @@ export interface IdentifyPopupOptions {
   zoom?: number;
 }
 
+/** Open a configured popup image in a viewport-sized lightbox. */
+function openPopupImageViewer(source: string, alt: string): void {
+  document.querySelector(".geolibre-popup-image-viewer")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "geolibre-photo-fullscreen geolibre-popup-image-viewer";
+  overlay.role = "dialog";
+  overlay.setAttribute("aria-label", alt);
+
+  const image = document.createElement("img");
+  image.src = source;
+  image.alt = alt;
+  image.className = "geolibre-popup-image-viewer-img";
+
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "geolibre-photo-fullscreen-close";
+  closeButton.textContent = "×";
+  closeButton.setAttribute("aria-label", "Close enlarged image");
+
+  const close = () => {
+    document.removeEventListener("keydown", onKeyDown);
+    overlay.remove();
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") close();
+  };
+  closeButton.addEventListener("click", close);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKeyDown);
+  overlay.append(image, closeButton);
+  document.body.appendChild(overlay);
+  closeButton.focus();
+}
+
 /**
  * Draw one resolved value into its cell. `"auto"` keeps the historical
  * behavior (sanitized KML description markup, inline base64 images as
@@ -43,7 +79,20 @@ function renderPopupValue(cell: HTMLElement, row: PopupRow): void {
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.className = "geolibre-popup-image-link";
-      link.title = "Open full-size image in a new tab";
+      link.title = "Click to enlarge";
+      link.addEventListener("click", (event) => {
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+        event.preventDefault();
+        openPopupImageViewer(source, row.label);
+      });
       const image = document.createElement("img");
       // Trimmed, because that is the copy isSafePopupUrl actually validated —
       // as in the link branch below.
@@ -170,6 +219,7 @@ export function createIdentifyPopupRows(
 
     const valueCell = document.createElement("div");
     valueCell.className = "break-words text-foreground";
+    if (row.kind === "image") valueCell.classList.add("geolibre-popup-image-cell");
     renderPopupValue(valueCell, row);
 
     rowElement.append(keyCell, valueCell);

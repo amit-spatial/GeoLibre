@@ -2404,8 +2404,39 @@ body,
   resize: both;
 }
 
+/* Cesium supplies its own absolutely positioned popup shell. Make that the
+   sole resize surface and let its contents track both dimensions, avoiding a
+   second nested handle that only resizes the child. */
+.geolibre-identify-image-popup > div,
+.geolibre-identify-image-popup .geolibre-identify-popup-root {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.geolibre-identify-image-popup .geolibre-identify-popup-root {
+  resize: none;
+}
+
+.geolibre-identify-image-popup .geolibre-identify-popup-rows {
+  display: flex;
+  flex-direction: column;
+  max-height: none;
+}
+
 .geolibre-identify-popup-image-row {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.geolibre-identify-image-popup .geolibre-identify-popup-image-row {
+  flex: 1 1 auto;
+  min-height: 180px;
+}
+
+.geolibre-identify-image-popup .geolibre-popup-image-cell,
+.geolibre-identify-image-popup .geolibre-popup-image-link {
+  height: 100%;
 }
 
 .geolibre-popup-image-link {
@@ -2417,9 +2448,20 @@ body,
 .geolibre-popup-image {
   display: block;
   width: 100%;
+  height: 100%;
   max-height: min(50vh, 420px);
   object-fit: contain;
   background: hsl(var(--muted));
+}
+
+.geolibre-identify-image-popup .geolibre-popup-image {
+  max-height: none;
+}
+
+.geolibre-popup-image-viewer-img {
+  width: calc(100vw - 4rem);
+  height: calc(100vh - 4rem);
+  object-fit: contain;
 }
 
 /* The attribute-table toolbar wraps into several rows on portrait phones. Its

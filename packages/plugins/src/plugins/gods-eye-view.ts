@@ -32,6 +32,7 @@ import { fetchMilitaryFlightsCzml, fetchOpenSkyCzml } from "./gods-eye-view-airc
 import {
   CCTV_MAX_VIEW_SPAN_DEGREES,
   CCTV_QUERY_SNAP_DEGREES,
+  cctvPreviewsVisibleAtZoom,
   fetchCctvCzml,
 } from "./gods-eye-view-cctv-feeds";
 import { fetchTransitCzml } from "./gods-eye-view-transit-feeds";
@@ -69,6 +70,7 @@ interface FeedFetchContext {
   signal: AbortSignal;
   window: CzmlTimeWindow;
   bounds: [number, number, number, number] | null;
+  zoom: number | null;
 }
 
 interface FeedDescriptor {
@@ -80,7 +82,7 @@ interface FeedDescriptor {
   flag: string;
   defaultEnabled: boolean;
   ownsClockWindow?: boolean;
-  viewportKey?: (bounds: FeedFetchContext["bounds"]) => string;
+  viewportKey?: (bounds: FeedFetchContext["bounds"], zoom: number | null) => string;
   fetch: (context: FeedFetchContext) => Promise<GodsEyeViewFeedPayload>;
 }
 
@@ -256,9 +258,10 @@ const FEED_DESCRIPTORS = {
     timeoutMs: 30_000,
     flag: GODS_EYE_VIEW_CCTV_FLAG,
     defaultEnabled: false,
-    viewportKey: (bounds) =>
-      viewportBoundsKey(bounds, CCTV_MAX_VIEW_SPAN_DEGREES, CCTV_QUERY_SNAP_DEGREES),
-    fetch: ({ bounds, signal }) => fetchCctvCzml(bounds, { signal }),
+    viewportKey: (bounds, zoom) =>
+      `${viewportBoundsKey(bounds, CCTV_MAX_VIEW_SPAN_DEGREES, CCTV_QUERY_SNAP_DEGREES)}|preview:${cctvPreviewsVisibleAtZoom(zoom)}`,
+    fetch: ({ bounds, signal, zoom }) =>
+      fetchCctvCzml(bounds, { signal, showPreviews: cctvPreviewsVisibleAtZoom(zoom) }),
   },
   radio: {
     group: "utilities",
@@ -580,7 +583,8 @@ async function refreshFeed(feed: FeedId, force = true): Promise<void> {
   if (!force && state.retryAfter > Date.now()) return;
   const descriptor: FeedDescriptor = FEED_DESCRIPTORS[feed];
   const bounds = appRef?.getViewBounds?.() ?? null;
-  const viewportKey = descriptor.viewportKey?.(bounds) ?? null;
+  const zoom = cesiumRef?.readView().zoom ?? null;
+  const viewportKey = descriptor.viewportKey?.(bounds, zoom) ?? null;
   if (
     !force &&
     state.lastUpdated &&
@@ -608,6 +612,7 @@ async function refreshFeed(feed: FeedId, force = true): Promise<void> {
       signal: controller.signal,
       window,
       bounds,
+      zoom,
     });
     if (generation !== state.generation || !state.enabled) return;
     const updatedAt = new Date();
@@ -670,10 +675,11 @@ function setFeedEnabled(feed: FeedId, enabled: boolean): void {
 
 function refreshViewportFeeds(): void {
   const bounds = appRef?.getViewBounds?.() ?? null;
+  const zoom = cesiumRef?.readView().zoom ?? null;
   for (const feed of FEED_IDS) {
     const descriptor: FeedDescriptor = FEED_DESCRIPTORS[feed];
     if (!feeds[feed].enabled || !descriptor.viewportKey) continue;
-    const key = descriptor.viewportKey(bounds);
+    const key = descriptor.viewportKey(bounds, zoom);
     const { lastViewportKey, requestedViewportKey } = feeds[feed];
     // A completed result is reusable only when no request for another viewport
     // is in flight. This makes a quick A → B → A move abort B and restore A.
