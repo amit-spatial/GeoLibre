@@ -534,7 +534,8 @@ export function MapboxCanvas({
           }).addTo(map);
           hoverTooltip
             .setMaxWidth(`${(resolvePopupMaxWidth(layer?.popup) ?? 256) + 24}px`)
-            .setLngLat(lngLat).setDOMContent(content);
+            .setLngLat(lngLat)
+            .setDOMContent(content);
         };
         const handleMouseMove = (e: MapEventOf<"mousemove">) => {
           if (!viewId) {
