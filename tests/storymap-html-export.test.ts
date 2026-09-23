@@ -303,7 +303,7 @@ describe("buildStoryMapHtml markers and popups (#2597)", () => {
           {
             l: "Photo",
             k: "image",
-            v: "https://example.com/ypres.png",
+            v: "",
             u: "https://example.com/ypres.png",
           },
           { l: "url", k: "link", v: "Click Here", u: "https://geolibre.app" },
@@ -323,5 +323,21 @@ describe("buildStoryMapHtml markers and popups (#2597)", () => {
     });
     assert.deepEqual(exportedConfig(html).popups, {});
     assert.doesNotMatch(html, /"generateId":true/);
+  });
+});
+
+describe("buildStoryMapHtml inline popup images (#2597)", () => {
+  it("references an inline data image by field instead of embedding it twice", () => {
+    const dataUrl = `data:image/png;base64,${"A".repeat(4096)}`;
+    const layer = markerLayer({ popup: { fields: [{ field: "thumb", kind: "image" }] } });
+    layer.geojson!.features[0].properties!.thumb = dataUrl;
+    const html = buildStoryMapHtml({
+      storymap: story(),
+      basemapStyleUrl: "https://tiles.example.com/style.json",
+      layers: [layer],
+    });
+    const popups = exportedConfig(html).popups as Record<string, Array<{ r: unknown[] }>>;
+    assert.deepEqual(popups.markers[0].r, [{ l: "thumb", k: "image", v: "", p: "thumb" }]);
+    assert.equal(html.split(dataUrl).length - 1, 1, "data URL appears once, in the GeoJSON");
   });
 });

@@ -62,12 +62,17 @@ export interface StoryMarkerImage {
   iconSize: number | unknown[];
 }
 
-/** One popup row as the exported page draws it; `u` is a pre-validated URL. */
+/**
+ * One popup row as the exported page draws it. `u` is a pre-validated URL; an
+ * inline `data:` image instead names its property in `p`, which the page reads
+ * back from the feature, so the (often large) data URL is not embedded twice.
+ */
 interface ExportPopupRow {
   l: string;
   k: "text" | "image" | "link";
   v: string;
   u?: string;
+  p?: string;
 }
 
 /** Per-feature popup content, indexed like the layer's features. */
@@ -336,7 +341,10 @@ function exportPopupRow(row: PopupRow): ExportPopupRow {
     (row.kind === "image" && isSafePopupUrl(row.value, true)) ||
     (row.kind === "auto" && isInlineImageValue(row.value))
   ) {
-    return { l: row.label, k: "image", v: row.text, u: trimmed };
+    // The image itself is the value, so no fallback text is needed.
+    return /^data:/i.test(trimmed)
+      ? { l: row.label, k: "image", v: "", p: row.field }
+      : { l: row.label, k: "image", v: "", u: trimmed };
   }
   if (row.kind === "link" && isSafePopupUrl(row.value)) {
     return { l: row.label, k: "link", v: row.linkLabel ?? row.text, u: trimmed };
@@ -994,13 +1002,15 @@ function renderTemplate(
         // Feature popups and hover tooltips, from content resolved at export
         // time (#2597). Everything is drawn as text; image and link URLs were
         // validated as http(s) or inline raster images before export.
-        function popupRows(parent, rows) {
+        function popupRows(parent, rows, properties) {
             (rows || []).forEach(function (row) {
                 var line = document.createElement('div'); line.className = 'sm-popup-row';
                 var label = document.createElement('span'); label.className = 'sm-popup-label'; label.textContent = row.l;
                 var value = document.createElement('span'); value.className = 'sm-popup-value';
-                if (row.k === 'image' && row.u) {
-                    var img = document.createElement('img'); img.src = row.u; img.alt = row.l; img.loading = 'lazy';
+                // A "p" row was validated as an inline raster image at export.
+                var src = row.u || (row.p && properties && typeof properties[row.p] === 'string' ? properties[row.p].trim() : '');
+                if (row.k === 'image' && src) {
+                    var img = document.createElement('img'); img.src = src; img.alt = row.l; img.loading = 'lazy';
                     value.appendChild(img);
                 } else if (row.k === 'link' && row.u) {
                     var a = document.createElement('a'); a.href = row.u; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = row.v;
@@ -1011,12 +1021,12 @@ function renderTemplate(
                 line.appendChild(label); line.appendChild(value); parent.appendChild(line);
             });
         }
-        function popupElement(title, body, rows) {
+        function popupElement(title, body, rows, properties) {
             var root = document.createElement('div'); root.className = 'sm-popup';
             var heading = document.createElement('div'); heading.className = 'sm-popup-title'; heading.textContent = title;
             root.appendChild(heading);
             if (body) { var b = document.createElement('div'); b.className = 'sm-popup-body'; b.textContent = body; root.appendChild(b); }
-            popupRows(root, rows);
+            popupRows(root, rows, properties);
             return root;
         }
         function popupAt(layerId, feature) {
@@ -1033,7 +1043,7 @@ function renderTemplate(
                     var entry = popupAt(hits[i].layer.id, hits[i]);
                     if (entry && entry.t !== undefined) {
                         tooltip.remove();
-                        new maplibregl.Popup({ maxWidth: '320px' }).setLngLat(e.lngLat).setDOMContent(popupElement(entry.t, entry.b, entry.r)).addTo(map);
+                        new maplibregl.Popup({ maxWidth: '320px' }).setLngLat(e.lngLat).setDOMContent(popupElement(entry.t, entry.b, entry.r, hits[i].properties)).addTo(map);
                         return;
                     }
                 }
@@ -1051,6 +1061,12 @@ function renderTemplate(
                 } else {
                     tooltip.remove();
                 }
+            });
+            // Moving straight onto a chapter card fires no further map
+            // mousemove, so clear the tooltip when the pointer leaves the map.
+            map.on('mouseout', function () {
+                map.getCanvas().style.cursor = '';
+                tooltip.remove();
             });
         }
 
