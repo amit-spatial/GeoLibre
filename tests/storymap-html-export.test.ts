@@ -173,3 +173,155 @@ describe("buildStoryMapHtml raster sources", () => {
     assert.ok(!html.includes("scene-a-source"));
   });
 });
+
+/** Parse the `var config = {...};` block the exported page embeds. */
+function exportedConfig(html: string): Record<string, unknown> {
+  const match = /var config = (\{[\s\S]*?\});\n\s*<\/script>/.exec(html);
+  assert.ok(match, "config block present");
+  return JSON.parse(match[1].replace(/<\\\//g, "</").replace(/<\\!--/g, "<!--"));
+}
+
+const COG_URL = "https://storage.googleapis.com/wfamaps/GermanMap_12Mar16_cog2.tif";
+
+function markerLayer(patch: Partial<GeoLibreLayer> = {}): GeoLibreLayer {
+  return {
+    id: "markers",
+    name: "Markers",
+    type: "geojson",
+    source: { type: "geojson" },
+    visible: true,
+    opacity: 1,
+    style: {
+      ...DEFAULT_LAYER_STYLE,
+      markerEnabled: true,
+      markerShape: "pin",
+      markerColor: "#ff0000",
+      markerSize: 32,
+    },
+    metadata: {},
+    geojson: {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [2.886, 50.85] },
+          properties: {
+            name: "Ypres",
+            desc: "Ypres Salient",
+            photo: "https://example.com/ypres.png",
+            url: "https://geolibre.app",
+            evil: "javascript:alert(1)",
+          },
+        },
+      ],
+    },
+    ...patch,
+  };
+}
+
+const MARKER_IMAGE = { dataUrl: "data:image/png;base64,AAAA", pixelRatio: 2, iconSize: 1 };
+
+describe("buildStoryMapHtml COG layers (#2597)", () => {
+  it("inlines a remote COG through the cog:// protocol and loads the protocol script", () => {
+    const html = buildStoryMapHtml({
+      storymap: story(),
+      basemapStyleUrl: "https://tiles.example.com/style.json",
+      layers: [rasterLayer("scene-a", { type: "raster", url: COG_URL }, { type: "cog" })],
+    });
+    assert.match(html, /map\.addSource\("scene-a-source", \{"type":"raster","url":"cog:\/\/https:/);
+    assert.match(html, /maplibre-cog-protocol@0\.10\.0\/dist\/index\.js' integrity='sha384-/);
+    assert.match(html, /maplibregl\.addProtocol\('cog'/);
+  });
+
+  it("skips a COG that is not reachable over http(s) and omits the protocol script", () => {
+    const html = buildStoryMapHtml({
+      storymap: story(),
+      basemapStyleUrl: "https://tiles.example.com/style.json",
+      layers: [
+        rasterLayer("scene-a", { type: "raster", url: "blob:http://localhost/1" }, { type: "cog" }),
+      ],
+    });
+    assert.doesNotMatch(html, /scene-a-source/);
+    assert.doesNotMatch(html, /maplibre-cog-protocol/);
+  });
+});
+
+describe("buildStoryMapHtml markers and popups (#2597)", () => {
+  it("draws a marker-enabled point layer with its baked sprite", () => {
+    const html = buildStoryMapHtml({
+      storymap: story(),
+      basemapStyleUrl: "https://tiles.example.com/style.json",
+      layers: [markerLayer()],
+      markerImages: { markers: MARKER_IMAGE },
+    });
+    assert.match(html, /"type":"symbol","layout":\{"icon-image":"geolibre-story-marker-markers"/);
+    assert.match(html, /"icon-opacity":1/);
+    const config = exportedConfig(html);
+    assert.deepEqual(config.markerImages, {
+      "geolibre-story-marker-markers": { url: MARKER_IMAGE.dataUrl, pixelRatio: 2 },
+    });
+  });
+
+  it("falls back to a circle when no sprite was baked", () => {
+    const html = buildStoryMapHtml({
+      storymap: story(),
+      basemapStyleUrl: "https://tiles.example.com/style.json",
+      layers: [markerLayer()],
+    });
+    assert.match(html, /map\.addLayer\(\{"type":"circle"/);
+    assert.deepEqual(exportedConfig(html).markerImages, {});
+  });
+
+  it("resolves the authored popup and tooltip, keeping only safe URLs", () => {
+    const html = buildStoryMapHtml({
+      storymap: story(),
+      basemapStyleUrl: "https://tiles.example.com/style.json",
+      layers: [
+        markerLayer({
+          popup: {
+            click: true,
+            hover: true,
+            titleField: "name",
+            fields: [
+              { field: "desc", label: "Site", hover: true },
+              { field: "photo", label: "Photo", kind: "image" },
+              { field: "url", kind: "link", format: { linkLabel: "Click Here" } },
+              { field: "evil", kind: "link" },
+            ],
+          },
+        }),
+      ],
+      markerImages: { markers: MARKER_IMAGE },
+    });
+    assert.match(html, /"generateId":true/);
+    const popups = exportedConfig(html).popups as Record<string, unknown[]>;
+    assert.deepEqual(popups.markers, [
+      {
+        t: "Ypres",
+        r: [
+          { l: "Site", k: "text", v: "Ypres Salient" },
+          {
+            l: "Photo",
+            k: "image",
+            v: "https://example.com/ypres.png",
+            u: "https://example.com/ypres.png",
+          },
+          { l: "url", k: "link", v: "Click Here", u: "https://geolibre.app" },
+          { l: "evil", k: "text", v: "javascript:alert(1)" },
+        ],
+        ht: "Ypres",
+        hr: [{ l: "Site", k: "text", v: "Ypres Salient" }],
+      },
+    ]);
+  });
+
+  it("adds no popups for a layer without a popup config", () => {
+    const html = buildStoryMapHtml({
+      storymap: story(),
+      basemapStyleUrl: "https://tiles.example.com/style.json",
+      layers: [markerLayer()],
+    });
+    assert.deepEqual(exportedConfig(html).popups, {});
+    assert.doesNotMatch(html, /"generateId":true/);
+  });
+});

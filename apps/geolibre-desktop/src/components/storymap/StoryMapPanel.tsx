@@ -57,6 +57,7 @@ import {
 import { saveTextFileWithFallback } from "../../lib/tauri-io";
 import { promptDownloadNameIfNeeded } from "../../hooks/useFileNamePrompt";
 import { buildStoryMapHtml } from "../../lib/storymap-export";
+import { bakeStoryMarkerImages } from "../../lib/storymap-marker-images";
 import { StoryMapHandoutDialog } from "./StoryMapHandoutDialog";
 
 interface StoryMapPanelProps {
@@ -360,6 +361,7 @@ export function StoryMapPanel({ mapControllerRef }: StoryMapPanelProps) {
         layers: layersForExport,
         projection,
         navToggleLabel: t("storymap.toggleNav"),
+        markerImages: await bakeStoryMarkerImages(layersForExport),
       });
       const slug =
         (story.title || "story-map")
