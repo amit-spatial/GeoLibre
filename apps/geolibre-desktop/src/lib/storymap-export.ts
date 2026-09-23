@@ -1,5 +1,6 @@
 import type { FeatureCollection, Geometry } from "geojson";
 import {
+  documentLocale,
   extrusionColorValue,
   extrusionHeightValue,
   isInlineImageValue,
@@ -157,19 +158,6 @@ export function buildStoryMapHtml(options: StoryMapExportOptions): string {
     throw new Error("Cannot export a story map with no chapters.");
   }
 
-  // Only inline layers that are actually referenced by a chapter transition or
-  // that are visible GeoJSON layers, so the export stays focused on the story.
-  // `referenced` (enter ∪ exit) drives which layers to inline.
-  const referenced = new Set<string>();
-  for (const chapter of storymap.chapters) {
-    for (const change of chapter.onChapterEnter) {
-      referenced.add(change.layerId);
-    }
-    for (const change of chapter.onChapterExit) {
-      referenced.add(change.layerId);
-    }
-  }
-
   // A layer's starting opacity must match what the in-app presenter shows on the
   // first chapter, which applies chapter 0's onChapterEnter on top of the live
   // (naturally visible) layers via enterChapter(0). So seed each layer from
@@ -185,9 +173,9 @@ export function buildStoryMapHtml(options: StoryMapExportOptions): string {
   const markerImages = options.markerImages ?? {};
   const inlineLayers: InlineLayerExport[] = [];
   const popups: Record<string, ExportFeaturePopup[]> = {};
-  for (const layer of layers) {
-    const isReferenced = referenced.has(layer.id);
-    if (!isReferenced && !layer.visible) continue;
+  // Resolve popups the way the app would on the story's opening view.
+  const popupContext = { zoom: storymap.chapters[0].location.zoom, locale: documentLocale() };
+  for (const layer of storyExportCandidates(storymap, layers)) {
     // Inline GeoJSON layers and raster tile layers (the latter covers basemaps
     // added through the Basemaps plugin, which are raster layers rather than a
     // style URL, #936). Layers iterate in store order; the store array is
@@ -197,7 +185,7 @@ export function buildStoryMapHtml(options: StoryMapExportOptions): string {
     // the overlays here too).
     const built = buildInlineLayer(layer, markerImages[layer.id]);
     if (!built) continue;
-    const layerPopups = buildLayerPopups(layer);
+    const layerPopups = buildLayerPopups(layer, popupContext);
     if (layerPopups) {
       popups[layer.id] = layerPopups;
       // Popups look features up by index, so let MapLibre number them.
@@ -329,6 +317,32 @@ export function buildStoryMapHtml(options: StoryMapExportOptions): string {
   return renderTemplate(config, inlineLayerScript, usesCog);
 }
 
+/**
+ * The layers a story export considers inlining: those a chapter transition
+ * references (enter or exit), plus every visible layer, so the export stays
+ * focused on the story. Callers preparing per-layer inputs (such as baked
+ * marker sprites) use it to skip layers the export would drop anyway.
+ *
+ * @param storymap The story being exported.
+ * @param layers The project layers, bottom to top.
+ * @returns The candidate layers, in the same order.
+ */
+export function storyExportCandidates(
+  storymap: StoryMap,
+  layers: GeoLibreLayer[],
+): GeoLibreLayer[] {
+  const referenced = new Set<string>();
+  for (const chapter of storymap.chapters) {
+    for (const change of chapter.onChapterEnter) {
+      referenced.add(change.layerId);
+    }
+    for (const change of chapter.onChapterExit) {
+      referenced.add(change.layerId);
+    }
+  }
+  return layers.filter((layer) => layer.visible || referenced.has(layer.id));
+}
+
 /** The export's style image id for a layer's baked marker sprite. */
 function markerImageId(layerId: string): string {
   return `geolibre-story-marker-${layerId}`;
@@ -364,9 +378,15 @@ function exportPopupRow(row: PopupRow): ExportPopupRow {
  * behavior for layers the author never set popups up on.
  *
  * @param layer The layer being inlined.
+ * @param context The zoom `["zoom"]` expressions evaluate at (the story's
+ *   opening view) and the locale values are formatted in (the app's UI
+ *   language), since the content is resolved once rather than per view.
  * @returns Popup content per feature index, or `null` when there is none.
  */
-function buildLayerPopups(layer: GeoLibreLayer): ExportFeaturePopup[] | null {
+function buildLayerPopups(
+  layer: GeoLibreLayer,
+  context: { zoom: number; locale?: string },
+): ExportFeaturePopup[] | null {
   const { popup, geojson } = layer;
   if (layer.type !== "geojson" || !geojson || !popup) return null;
   const click = isPopupClickEnabled(popup);
@@ -375,7 +395,8 @@ function buildLayerPopups(layer: GeoLibreLayer): ExportFeaturePopup[] | null {
   const fieldVisibility = layer.fieldVisibility;
   const result = geojson.features.map((feature): ExportFeaturePopup => {
     const properties = (feature.properties ?? {}) as Record<string, unknown>;
-    const options = { feature, fieldVisibility };
+    const options = { feature, fieldVisibility, zoom: context.zoom };
+    const { locale } = context;
     const entry: ExportFeaturePopup = {};
     if (click) {
       entry.t = resolvePopupTitle(layer.name, properties, popup, options);
@@ -383,11 +404,18 @@ function buildLayerPopups(layer: GeoLibreLayer): ExportFeaturePopup[] | null {
       if (body !== null) {
         entry.b = body;
       } else {
-        entry.r = resolvePopupRows(properties, { popup, fieldVisibility }).map(exportPopupRow);
+        entry.r = resolvePopupRows(properties, { popup, fieldVisibility, locale }).map(
+          exportPopupRow,
+        );
       }
     }
     if (hover) {
-      const rows = resolvePopupRows(properties, { popup, fieldVisibility, hover: true });
+      const rows = resolvePopupRows(properties, {
+        popup,
+        fieldVisibility,
+        hover: true,
+        locale,
+      });
       const title = resolveConfiguredPopupTitle(properties, popup, options);
       // Mirror the app: no flagged field and no configured title means no tip.
       if (rows.length > 0 || title !== null) {

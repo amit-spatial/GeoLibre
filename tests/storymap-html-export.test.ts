@@ -6,7 +6,10 @@ import {
   type GeoLibreLayer,
   type StoryMap,
 } from "@geolibre/core";
-import { buildStoryMapHtml } from "../apps/geolibre-desktop/src/lib/storymap-export";
+import {
+  buildStoryMapHtml,
+  storyExportCandidates,
+} from "../apps/geolibre-desktop/src/lib/storymap-export";
 
 function story(overrides: Partial<StoryMap> = {}): StoryMap {
   return {
@@ -339,5 +342,31 @@ describe("buildStoryMapHtml inline popup images (#2597)", () => {
     const popups = exportedConfig(html).popups as Record<string, Array<{ r: unknown[] }>>;
     assert.deepEqual(popups.markers[0].r, [{ l: "thumb", k: "image", v: "", p: "thumb" }]);
     assert.equal(html.split(dataUrl).length - 1, 1, "data URL appears once, in the GeoJSON");
+  });
+});
+
+describe("storyExportCandidates (#2597)", () => {
+  it("keeps visible and chapter-referenced layers only", () => {
+    const layers = [
+      rasterLayer("scene-a", {}, { visible: false }),
+      rasterLayer("shown", {}),
+      rasterLayer("hidden", {}, { visible: false }),
+    ];
+    assert.deepEqual(
+      storyExportCandidates(story(), layers).map((layer) => layer.id),
+      ["scene-a", "shown"],
+    );
+  });
+});
+
+describe("buildStoryMapHtml popup expressions (#2597)", () => {
+  it("evaluates a title expression at the story's opening zoom", () => {
+    const html = buildStoryMapHtml({
+      storymap: story(),
+      basemapStyleUrl: "https://tiles.example.com/style.json",
+      layers: [markerLayer({ popup: { titleExpression: '["to-string", ["zoom"]]' } })],
+    });
+    const popups = exportedConfig(html).popups as Record<string, Array<{ t: string }>>;
+    assert.equal(popups.markers[0].t, "12");
   });
 });
