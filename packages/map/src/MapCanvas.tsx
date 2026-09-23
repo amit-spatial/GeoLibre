@@ -1301,7 +1301,7 @@ export const MapCanvas = memo(function MapCanvas({
         }).addTo(map);
       }
       hoverTooltip.current
-        .setMaxWidth(`${(resolvePopupMaxWidth(layer.popup) ?? 256) + 24}px`)
+        .setMaxWidth(`min(${(resolvePopupMaxWidth(layer.popup) ?? 256) + 24}px, calc(100% - 24px))`)
         .setLngLat(next.lngLat)
         .setDOMContent(content);
     };

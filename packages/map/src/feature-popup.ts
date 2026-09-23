@@ -411,7 +411,7 @@ export function createHoverTooltipElement(
   for (const row of rows) {
     const line = document.createElement("div");
     line.className = "grid gap-1.5 text-foreground";
-    line.style.gridTemplateColumns = "minmax(0, 2fr) minmax(0, 1fr)";
+    line.style.gridTemplateColumns = "minmax(0, 1fr) minmax(0, 2fr)";
     const label = document.createElement("span");
     label.className = "min-w-0 text-muted-foreground";
     label.style.overflowWrap = "anywhere";
