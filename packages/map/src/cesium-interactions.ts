@@ -171,7 +171,7 @@ export function installCesiumInteractions(
           zoom: engine.readView().zoom,
         });
         if (content) {
-          hover = place(content, point, true);
+          hover = place(content, point, true, resolvePopupMaxWidth(layer.popup));
           hoverLayerId = layer.id;
         }
         break;

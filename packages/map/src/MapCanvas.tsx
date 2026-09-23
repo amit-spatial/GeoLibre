@@ -1300,7 +1300,9 @@ export const MapCanvas = memo(function MapCanvas({
           maxWidth: "280px",
         }).addTo(map);
       }
-      hoverTooltip.current.setLngLat(next.lngLat).setDOMContent(content);
+      hoverTooltip.current
+        .setMaxWidth(`${(resolvePopupMaxWidth(layer.popup) ?? 256) + 24}px`)
+        .setLngLat(next.lngLat).setDOMContent(content);
     };
 
     const handleLeave = () => {

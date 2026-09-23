@@ -398,7 +398,10 @@ export function createHoverTooltipElement(
   const title = configuredTitle ?? layerName;
 
   const root = document.createElement("div");
-  root.className = "geolibre-hover-tooltip-root flex max-w-[16rem] flex-col gap-0.5 text-xs";
+  root.className = "geolibre-hover-tooltip-root flex flex-col gap-0.5 text-xs";
+  const width = resolvePopupMaxWidth(popup) ?? 256;
+  root.style.width = `min(${width}px, calc(100vw - 48px))`;
+  root.style.maxWidth = "100%";
 
   const heading = document.createElement("div");
   heading.className = "font-semibold text-foreground";
@@ -407,12 +410,15 @@ export function createHoverTooltipElement(
 
   for (const row of rows) {
     const line = document.createElement("div");
-    line.className = "flex gap-1.5 text-foreground";
+    line.className = "grid gap-1.5 text-foreground";
+    line.style.gridTemplateColumns = "minmax(0, 2fr) minmax(0, 1fr)";
     const label = document.createElement("span");
-    label.className = "shrink-0 text-muted-foreground";
+    label.className = "min-w-0 text-muted-foreground";
+    label.style.overflowWrap = "anywhere";
     label.textContent = row.label;
     const value = document.createElement("span");
     value.className = "min-w-0 break-words";
+    value.style.overflowWrap = "anywhere";
     // A tooltip is a one-line read, so a link shows as its text rather than as
     // a clickable anchor — the tip has `pointer-events: none` and could not be
     // clicked anyway. Image rows never reach here: resolvePopupRows drops them
