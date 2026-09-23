@@ -11,6 +11,7 @@ import {
   resolvePopupBody,
   resolvePopupRows,
   resolvePopupTitle,
+  stringifyPopupValue,
   styleValue,
   type GeoLibreLayer,
   type MapProjection,
@@ -404,9 +405,15 @@ function buildLayerPopups(
       if (body !== null) {
         entry.b = body;
       } else {
-        entry.r = resolvePopupRows(properties, { popup, fieldVisibility, locale }).map(
+        const rows = resolvePopupRows(properties, { popup, fieldVisibility, locale }).map(
           exportPopupRow,
         );
+        // Mirror the app's synthetic id row (on unless showFeatureId is false),
+        // using the feature's own id; the export's generated ids are indexes.
+        if (feature.id != null && popup.showFeatureId !== false) {
+          rows.unshift({ l: "id", k: "text", v: stringifyPopupValue(feature.id) });
+        }
+        entry.r = rows;
       }
     }
     if (hover) {
@@ -579,11 +586,9 @@ function buildRasterTileSource(layer: GeoLibreLayer): Record<string, unknown> | 
  */
 function buildCogSource(layer: GeoLibreLayer): Record<string, unknown> | null {
   if (layer.type !== "cog") return null;
-  const url = [layer.source.url, layer.sourcePath].find(
-    (value): value is string => typeof value === "string" && /^https?:\/\//i.test(value.trim()),
-  );
-  if (!url) return null;
-  return { type: "raster", url: `cog://${url.trim()}`, tileSize: 256 };
+  const url = typeof layer.source.url === "string" ? layer.source.url.trim() : "";
+  if (!/^https?:\/\//i.test(url)) return null;
+  return { type: "raster", url: `cog://${url}`, tileSize: 256 };
 }
 
 /** Pick the dominant (most common) geometry kind for the MapLibre layer type. */
@@ -1076,7 +1081,17 @@ function renderTemplate(
                     }
                 }
             });
+            // mousemove fires faster than the screen refreshes, so query and
+            // rebuild the tooltip at most once per animation frame, as the app does.
+            var hoverEvent = null, hoverFrame = 0;
             map.on('mousemove', function (e) {
+                hoverEvent = e;
+                if (!hoverFrame) hoverFrame = requestAnimationFrame(updateHover);
+            });
+            function updateHover() {
+                hoverFrame = 0;
+                var e = hoverEvent;
+                if (!e) return;
                 var hits = map.queryRenderedFeatures(e.point, { layers: ids });
                 var entry = null;
                 for (var i = 0; i < hits.length && !entry; i++) {
@@ -1089,10 +1104,14 @@ function renderTemplate(
                 } else {
                     tooltip.remove();
                 }
-            });
+            }
             // Moving straight onto a chapter card fires no further map
-            // mousemove, so clear the tooltip when the pointer leaves the map.
+            // mousemove, so clear the tooltip when the pointer leaves the map
+            // (and drop a pending frame so it cannot re-open the tooltip).
             map.on('mouseout', function () {
+                if (hoverFrame) cancelAnimationFrame(hoverFrame);
+                hoverFrame = 0;
+                hoverEvent = null;
                 map.getCanvas().style.cursor = '';
                 tooltip.remove();
             });

@@ -370,3 +370,23 @@ describe("buildStoryMapHtml popup expressions (#2597)", () => {
     assert.equal(popups.markers[0].t, "12");
   });
 });
+
+describe("buildStoryMapHtml popup id row (#2597)", () => {
+  it("prepends the feature's own id unless showFeatureId is false", () => {
+    const withId = (showFeatureId?: boolean) => {
+      const layer = markerLayer({ popup: { showFeatureId, fields: [{ field: "name" }] } });
+      layer.geojson!.features[0].id = "f-1";
+      const html = buildStoryMapHtml({
+        storymap: story(),
+        basemapStyleUrl: "https://tiles.example.com/style.json",
+        layers: [layer],
+      });
+      return (exportedConfig(html).popups as Record<string, Array<{ r: unknown[] }>>).markers[0].r;
+    };
+    assert.deepEqual(withId(), [
+      { l: "id", k: "text", v: "f-1" },
+      { l: "name", k: "text", v: "Ypres" },
+    ]);
+    assert.deepEqual(withId(false), [{ l: "name", k: "text", v: "Ypres" }]);
+  });
+});
