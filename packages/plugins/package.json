@@ -45,7 +45,7 @@
     "@tauri-apps/plugin-opener": "^2.5.5",
     "@turf/union": "^7.4.0",
     "a5-js": "^0.10.1",
-    "cog-tiler-wasm": "^0.3.8",
+    "cog-tiler-wasm": "^0.4.0",
     "dggal": "^0.0.6",
     "geotiff": "^3.0.5",
     "geotiff-geokeys-to-proj4": "^2026.8.16",
@@ -89,7 +89,7 @@
     "shpjs": "^6.2.0",
     "three": "^0.186.0",
     "webdggrid": "^1.9.0",
-    "whitebox-wasm": "^0.5.1"
+    "whitebox-wasm": "^0.6.0"
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
