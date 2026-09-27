@@ -21,3 +21,10 @@ it("lets a viewer pause and restore project hover tips", () => {
   fireEvent.click(screen.getByRole("button", { name: "Restore" }));
   assert.equal(useAppStore.getState().hoverTooltipsEnabled, true);
 });
+
+it("hides the hover switch when no layer shows hover tips", () => {
+  useAppStore.getState().newProject({ name: "No hovers" });
+  useAppStore.getState().addGeoJsonLayer("Rivers", { type: "FeatureCollection", features: [] });
+  render(createElement(ViewerLayerPanel, { mapControllerRef: { current: null } }));
+  assert.equal(screen.queryByText("Hover tooltips"), null);
+});

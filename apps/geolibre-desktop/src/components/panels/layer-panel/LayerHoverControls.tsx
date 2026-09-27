@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useAppStore } from "@geolibre/core";
+import { isPopupHoverEnabled, useAppStore } from "@geolibre/core";
 import {
   Button,
   DropdownMenu,
@@ -16,6 +16,16 @@ export function LayerHoverControls() {
   const setEnabled = useAppStore((s) => s.setHoverTooltipsEnabled);
   const resetLayerHovers = useAppStore((s) => s.resetLayerHovers);
   const collaborationActive = useAppStore((s) => s.collaboration.isActive);
+  // Hover tips are off by default, so most projects never need this row.
+  // Keep it while tips are paused (to restore them) and while the opened
+  // project had hovers (so "reset" stays reachable after "clear").
+  const relevant = useAppStore(
+    (s) =>
+      !s.hoverTooltipsEnabled ||
+      s.layers.some((layer) => isPopupHoverEnabled(layer.popup)) ||
+      Object.values(s.projectHoverDefaults).some(Boolean),
+  );
+  if (!relevant) return null;
 
   return (
     <div className="flex items-center gap-1 border-b px-3 py-1 text-xs">

@@ -62,6 +62,13 @@ describe("LayerPanel", () => {
     assert.equal(layer(id)?.popup?.hover, true);
   });
 
+  it("hides the hover row when no layer shows hover tips", () => {
+    useAppStore.getState().newProject({ name: "No hovers" });
+    useAppStore.getState().addGeoJsonLayer("Rivers", { type: "FeatureCollection", features: [] });
+    renderLayerPanel();
+    assert.equal(screen.queryByText("Hover tooltips"), null);
+  });
+
   it("lists the store's layers with the topmost map layer first", () => {
     useAppStore.setState({
       layers: [
