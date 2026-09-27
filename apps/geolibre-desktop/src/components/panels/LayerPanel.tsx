@@ -45,9 +45,9 @@ import { BackgroundAppearanceDialog, BackgroundLayerRow } from "./layer-panel/Ba
 import { BindTimeSliderDialog } from "./layer-panel/BindTimeSliderDialog";
 import type { LayerActionsMenuShared } from "./layer-panel/LayerActionsMenu";
 import { LayerGroupHeader } from "./layer-panel/LayerGroupHeader";
+import { LayerHoverControls } from "./layer-panel/LayerHoverControls";
 import { LayerMetadataDialog, useLayerMetadataDialog } from "./layer-panel/LayerMetadataDialog";
 import { LayerPanelHeader } from "./layer-panel/LayerPanelHeader";
-import { LayerHoverControls } from "./layer-panel/LayerHoverControls";
 import { LayerRow } from "./layer-panel/LayerRow";
 import {
   RefreshSettingsDialog,
