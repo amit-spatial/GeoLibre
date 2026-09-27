@@ -506,7 +506,7 @@ export function LayerPanel({
           identifyLayerId={identifyLayerId}
           onCollapse={() => setIsCollapsed(true)}
         />
-        <LayerHoverControls />
+        <LayerHoverControls className="border-b px-3 py-1.5" />
       </div>
       <ScrollArea
         className="min-h-0 [&_[data-radix-scroll-area-viewport]]:touch-pan-y [&_[data-radix-scroll-area-viewport]]:overscroll-contain [&_[data-radix-scroll-area-viewport]>div]:block! [&_[data-radix-scroll-area-viewport]>div]:w-full! [&_[data-radix-scroll-area-viewport]>div]:min-w-0!"

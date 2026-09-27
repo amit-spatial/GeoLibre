@@ -12,9 +12,7 @@ The **Layers panel** on the left lists every layer in the project, from the topm
 
 ## Hover tooltips
 
-The **Hover tooltips** row in the editor and read-only viewer turns every layer's hover tip off while you explore the map or inspect attributes. **Restore** brings back the same per-layer choices and fields. This viewing switch does not change the saved project.
-
-The adjacent menu has two project edits. **Reset hovers to opened project** restores the hover choices that were present when you opened the project; layers added since then return to hover off. **Clear all hover enables** turns off every layer's saved hover choice. Both edits leave popup fields and click popups intact, and can be undone. Open the project again to refresh the reset baseline from the saved file.
+When at least one layer shows a [hover tooltip](styling.md#popups-and-hover-tooltips), the Layers panel (and the read-only viewer) shows a **Hover tooltips** checkbox. Untick it to pause every layer's hover tip while you explore the map or inspect attributes; tick it again to bring them back with the same per-layer choices and fields. This is a viewing switch only: it does not change or dirty the saved project, and it turns back on when a project opens.
 
 ## Blend modes
 

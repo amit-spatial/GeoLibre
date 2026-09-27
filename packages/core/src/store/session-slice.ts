@@ -109,8 +109,6 @@ export function identifyStateWithoutLayers(
 export interface SessionSlice {
   /** Local viewing switch; saved layer popup settings are left untouched. */
   hoverTooltipsEnabled: boolean;
-  /** Hover flags as opened with this project, for the Layers panel reset action. */
-  projectHoverDefaults: Record<string, boolean | undefined>;
   setHoverTooltipsEnabled: (enabled: boolean) => void;
   selectedLayerId: string | null;
   selectedFeatureId: string | null;
@@ -177,7 +175,6 @@ export interface SessionSlice {
 
 export const createSessionSlice: SliceCreator<SessionSlice> = (set) => ({
   hoverTooltipsEnabled: true,
-  projectHoverDefaults: {},
   setHoverTooltipsEnabled: (enabled) => set({ hoverTooltipsEnabled: enabled }),
   selectedLayerId: null,
   selectedFeatureId: null,

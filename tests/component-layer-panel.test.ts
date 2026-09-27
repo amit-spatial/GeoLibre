@@ -54,10 +54,11 @@ describe("LayerPanel", () => {
     useAppStore.getState().setLayerPopup(id, { hover: true });
     renderLayerPanel();
 
-    fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+    const toggle = screen.getByRole("checkbox", { name: "Hover tooltips" });
+    fireEvent.click(toggle);
     assert.equal(useAppStore.getState().hoverTooltipsEnabled, false);
     assert.equal(layer(id)?.popup?.hover, true);
-    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    fireEvent.click(toggle);
     assert.equal(useAppStore.getState().hoverTooltipsEnabled, true);
     assert.equal(layer(id)?.popup?.hover, true);
   });

@@ -15,10 +15,11 @@ it("lets a viewer pause and restore project hover tips", () => {
   useAppStore.getState().setLayerPopup(id, { hover: true });
   render(createElement(ViewerLayerPanel, { mapControllerRef: { current: null } }));
 
-  fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+  const toggle = screen.getByRole("checkbox", { name: "Hover tooltips" });
+  fireEvent.click(toggle);
   assert.equal(useAppStore.getState().hoverTooltipsEnabled, false);
   assert.equal(useAppStore.getState().layers[0].popup?.hover, true);
-  fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+  fireEvent.click(toggle);
   assert.equal(useAppStore.getState().hoverTooltipsEnabled, true);
 });
 
