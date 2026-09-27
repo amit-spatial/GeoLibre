@@ -422,18 +422,17 @@ export class LayerControlHost {
     const excludeLayers = Array.from(
       new Set([...this.adapter.excludedLayerIds, ...nativeStyleLayerIds, ...internalStyleLayerIds]),
     );
-    // The project store owns the Layers panel's membership. A hidden or
-    // still-loading layer may have no native style layer yet; excluding it
-    // here makes it appear only after a visibility toggle and control rebuild.
-    const controllableLayers = layers;
-
-    if (controllableLayers.length === 0) {
+    if (layers.length === 0) {
       return { excludeLayers };
     }
 
+    // The project store owns the Layers panel's membership, so every store
+    // layer gets a row. A hidden or still-loading layer may have no native
+    // style layer yet; excluding it here makes it appear only after a
+    // visibility toggle and control rebuild.
     return {
       excludeLayers,
-      customLayerAdapters: [this.createGeoLibreLayerAdapter(controllableLayers)],
+      customLayerAdapters: [this.createGeoLibreLayerAdapter(layers)],
     };
   }
 
