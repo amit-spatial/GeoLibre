@@ -97,6 +97,8 @@ export function ViewerLayerPanel({ mapControllerRef, mapReadyGeneration }: Viewe
   const layers = useAppStore((state) => state.layers);
   const layerGroups = useAppStore((state) => state.layerGroups);
   const setLayerVisibility = useAppStore((state) => state.setLayerVisibility);
+  const hoverTooltipsEnabled = useAppStore((state) => state.hoverTooltipsEnabled);
+  const setHoverTooltipsEnabled = useAppStore((state) => state.setHoverTooltipsEnabled);
 
   const groupById = useMemo(
     () => new Map(layerGroups.map((group) => [group.id, group] as const)),
@@ -131,6 +133,18 @@ export function ViewerLayerPanel({ mapControllerRef, mapReadyGeneration }: Viewe
         <Layers className="h-4 w-4" />
         {t("sharedRail.layers")}
       </h2>
+      <div className="mb-2 flex items-center gap-2 border-b pb-2 text-xs">
+        <span className="me-auto text-muted-foreground">{t("layers.hoverTooltips")}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          aria-pressed={hoverTooltipsEnabled}
+          onClick={() => setHoverTooltipsEnabled(!hoverTooltipsEnabled)}
+        >
+          {hoverTooltipsEnabled ? t("layers.turnHoversOff") : t("layers.restoreHovers")}
+        </Button>
+      </div>
       <div className="space-y-1">
         {rows.map(({ layer, headers, depth }) => (
           <Fragment key={layer.id}>

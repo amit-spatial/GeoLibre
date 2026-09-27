@@ -158,7 +158,7 @@ export function installCesiumInteractions(
       hover?.remove();
       hover = null;
       hoverLayerId = null;
-      if (!point || moving || state.identifyLayerId) return;
+      if (!point || moving || state.identifyLayerId || !state.hoverTooltipsEnabled) return;
       if (!state.layers.some((layer) => isPopupHoverEnabled(layer.popup))) return;
       for (const hit of engine.identifyAtScreen(point)) {
         const layer = state.layers.find((item) => item.id === hit.layerId);
@@ -241,6 +241,7 @@ export function installCesiumInteractions(
   const popupLayerHidden = (state: ReturnType<typeof useAppStore.getState>) =>
     popupLayerIds.some((id) => layerHidden(state, id));
   const unsubscribe = useAppStore.subscribe((state, prev) => {
+    if (!state.hoverTooltipsEnabled && prev.hoverTooltipsEnabled) clearHover();
     if (state.preferences.map.showPointerElevation !== prev.preferences.map.showPointerElevation) {
       state.setPointerElevation(
         state.preferences.map.showPointerElevation && lastPointer

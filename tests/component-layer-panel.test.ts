@@ -45,6 +45,23 @@ function layer(id: string) {
 }
 
 describe("LayerPanel", () => {
+  it("turns all hover tips off and restores their saved choices from the header", () => {
+    useAppStore.getState().newProject({ name: "Hover panel" });
+    const id = useAppStore.getState().addGeoJsonLayer("Rivers", {
+      type: "FeatureCollection",
+      features: [],
+    });
+    useAppStore.getState().setLayerPopup(id, { hover: true });
+    renderLayerPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+    assert.equal(useAppStore.getState().hoverTooltipsEnabled, false);
+    assert.equal(layer(id)?.popup?.hover, true);
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    assert.equal(useAppStore.getState().hoverTooltipsEnabled, true);
+    assert.equal(layer(id)?.popup?.hover, true);
+  });
+
   it("lists the store's layers with the topmost map layer first", () => {
     useAppStore.setState({
       layers: [

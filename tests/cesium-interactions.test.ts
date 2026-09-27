@@ -381,3 +381,20 @@ it("clears the hover tooltip when the layer it shows is hidden", () => {
   hide("0");
   assert.equal(f.document.querySelector(".geolibre-hover-tooltip"), null);
 });
+
+it("turns hover off immediately and restores the configured layer on demand", () => {
+  const f = setup();
+  useAppStore.setState({ identifyLayerId: null });
+  f.hover();
+  f.flush();
+  assert.ok(f.document.querySelector(".geolibre-hover-tooltip"));
+  useAppStore.getState().setHoverTooltipsEnabled(false);
+  assert.equal(f.document.querySelector(".geolibre-hover-tooltip"), null);
+  f.hover();
+  f.flush();
+  assert.equal(f.document.querySelector(".geolibre-hover-tooltip"), null);
+  useAppStore.getState().setHoverTooltipsEnabled(true);
+  f.hover();
+  f.flush();
+  assert.ok(f.document.querySelector(".geolibre-hover-tooltip"));
+});

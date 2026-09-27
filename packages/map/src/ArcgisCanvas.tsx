@@ -652,7 +652,7 @@ export function ArcgisCanvas({
           return {
             hover: new Map(
               visible
-                .filter((layer) => isPopupHoverEnabled(layer.popup))
+                .filter((layer) => next.hoverTooltipsEnabled && isPopupHoverEnabled(layer.popup))
                 .map((layer) => [layer.id, layer]),
             ),
             photos: new Set(
@@ -779,6 +779,7 @@ export function ArcgisCanvas({
           // A subscription of its own: `update()` above reacts to Identify for
           // its popup but is defined before these closures exist.
           const stopIdentifyWatch = useAppStore.subscribe((state, previous) => {
+            if (!state.hoverTooltipsEnabled && previous.hoverTooltipsEnabled) removeHoverTip();
             if (state.identifyLayerId && !previous.identifyLayerId) {
               removePhotoPopup();
               removeHoverTip();

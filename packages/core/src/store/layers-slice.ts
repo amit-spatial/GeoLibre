@@ -105,6 +105,8 @@ export interface LayersSlice {
    * `undefined` to restore the default full-property dump.
    */
   setLayerPopup: (id: string, popup: LayerPopupConfig | undefined) => void;
+  /** Change every layer's saved hover flag in one undoable project edit. */
+  resetLayerHovers: (mode: "project" | "clear") => void;
   /**
    * Replace the layer's editor tracking configuration (whether creation/edit
    * author and timestamp columns are maintained, and under which names). Pass
@@ -302,6 +304,20 @@ export const createLayersSlice: SliceCreator<LayersSlice> = (set, get) => ({
 
   setLayerAttributeForm: (id, attributeForm) => get().updateLayer(id, { attributeForm }),
   setLayerPopup: (id, popup) => get().updateLayer(id, { popup }),
+  resetLayerHovers: (mode) =>
+    set((s) => {
+      let changed = false;
+      const layers = s.layers.map((layer) => {
+        const hover = mode === "project" ? s.projectHoverDefaults[layer.id] : undefined;
+        if (layer.popup?.hover === hover) return layer;
+        const popup = { ...layer.popup };
+        if (hover !== undefined) popup.hover = hover;
+        else delete popup.hover;
+        changed = true;
+        return { ...layer, popup: Object.keys(popup).length ? popup : undefined };
+      });
+      return changed ? { layers, isDirty: true, hoverTooltipsEnabled: true } : { hoverTooltipsEnabled: true };
+    }),
 
   setLayerEditorTracking: (id, editorTracking) => get().updateLayer(id, { editorTracking }),
 

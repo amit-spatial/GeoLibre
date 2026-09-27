@@ -10,6 +10,12 @@ The **Layers panel** on the left lists every layer in the project, from the topm
 - **Order**: drag a layer to reorder it, or use the move up and move down actions. Layers higher in the list draw on top. The basemap (**Background**) always stays at the bottom.
 - **Opacity**: each layer has an opacity slider from 0 to 100 percent.
 
+## Hover tooltips
+
+The **Hover tooltips** row in the editor and read-only viewer turns every layer's hover tip off while you explore the map or inspect attributes. **Restore** brings back the same per-layer choices and fields. This viewing switch does not change the saved project.
+
+The adjacent menu has two project edits. **Reset hovers to opened project** restores the hover choices that were present when you opened the project; layers added since then return to hover off. **Clear all hover enables** turns off every layer's saved hover choice. Both edits leave popup fields and click popups intact, and can be undone. Open the project again to refresh the reset baseline from the saved file.
+
 ## Blend modes
 
 The [Style panel](styling.md) carries a **Blend** menu, above the symbology
