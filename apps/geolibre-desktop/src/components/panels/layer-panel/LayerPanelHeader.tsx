@@ -68,149 +68,163 @@ export function LayerPanelHeader({
   const collaborationActive = useAppStore((s) => s.collaboration.isActive);
   return (
     <div className="border-b">
-    <div className="flex items-center justify-between px-3 py-1.5">
-      <span className="text-sm font-semibold">{t("sharedRail.layers")}</span>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between px-3 py-1.5">
+        <span className="text-sm font-semibold">{t("sharedRail.layers")}</span>
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                title={t("planetSwitcher.label")}
+                aria-label={t("planetSwitcher.label")}
+              >
+                <Orbit
+                  className={cn(
+                    "h-4 w-4",
+                    selectedPlanet && selectedPlanet !== "earth" && "text-primary",
+                  )}
+                />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>{t("planetSwitcher.label")}</DropdownMenuLabel>
+              {PLANET_SWITCHER_OPTIONS.map((option) => (
+                <DropdownMenuCheckboxItem
+                  key={option.ellipsoidId}
+                  checked={selectedPlanet === option.ellipsoidId}
+                  onCheckedChange={(checked) => togglePlanet(option.ellipsoidId, checked)}
+                >
+                  {t(PLANET_SWITCHER_LABEL_KEYS[option.ellipsoidId])}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title={t("layers.basemaps")}
+            aria-label={t("layers.basemaps")}
+            aria-pressed={isPluginActive(BASEMAP_CONTROL_PLUGIN_ID)}
+            onClick={() => togglePlugin(BASEMAP_CONTROL_PLUGIN_ID, createAppAPI(mapControllerRef))}
+          >
+            <MapIcon
+              className={cn("h-4 w-4", isPluginActive(BASEMAP_CONTROL_PLUGIN_ID) && "text-primary")}
+            />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title={t("layers.geoEditor")}
+            aria-label={t("layers.geoEditor")}
+            aria-pressed={isPluginActive(GEO_EDITOR_PLUGIN_ID)}
+            onClick={() => togglePlugin(GEO_EDITOR_PLUGIN_ID, createAppAPI(mapControllerRef))}
+          >
+            <PenTool
+              className={cn("h-4 w-4", isPluginActive(GEO_EDITOR_PLUGIN_ID) && "text-primary")}
+            />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title={t("layers.newGroup")}
+            aria-label={t("layers.newGroup")}
+            onClick={onCreateGroup}
+          >
+            <FolderPlus className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title={allLayersVisible ? t("layers.hideAllLayers") : t("layers.showAllLayers")}
+            aria-label={allLayersVisible ? t("layers.hideAllLayers") : t("layers.showAllLayers")}
+            onClick={onToggleAllLayers}
+          >
+            {allLayersVisible ? (
+              <Eye className="h-4 w-4" />
+            ) : (
+              <EyeOff className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+          {/* A geometry edit session owns map clicks, which is why the
+            per-layer Identify button is disabled while its layer is edited;
+            the all-layer handler has to stand down for the same reason. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title={t("layers.identifyVisibleLayersHint")}
+            aria-label={t("layers.identifyVisibleLayers")}
+            aria-pressed={identifyLayerId === IDENTIFY_ALL_LAYERS_ID}
+            disabled={geometryEditLayerId !== null}
+            onClick={() =>
+              setIdentifyLayer(
+                identifyLayerId === IDENTIFY_ALL_LAYERS_ID ? null : IDENTIFY_ALL_LAYERS_ID,
+              )
+            }
+          >
+            <MousePointerClick
+              className={cn(
+                "h-4 w-4",
+                identifyLayerId === IDENTIFY_ALL_LAYERS_ID && "text-primary",
+              )}
+            />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            title={t("layers.collapse")}
+            aria-label={t("layers.collapse")}
+            onClick={onCollapse}
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 border-t px-3 py-1 text-xs">
+        <span className="me-auto text-muted-foreground">{t("layers.hoverTooltips")}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          aria-pressed={hoverTooltipsEnabled}
+          onClick={() => setHoverTooltipsEnabled(!hoverTooltipsEnabled)}
+        >
+          {hoverTooltipsEnabled ? t("layers.turnHoversOff") : t("layers.restoreHovers")}
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              title={t("planetSwitcher.label")}
-              aria-label={t("planetSwitcher.label")}
+              aria-label={t("layers.hoverOptions")}
             >
-              <Orbit
-                className={cn(
-                  "h-4 w-4",
-                  selectedPlanet && selectedPlanet !== "earth" && "text-primary",
-                )}
-              />
+              <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>{t("planetSwitcher.label")}</DropdownMenuLabel>
-            {PLANET_SWITCHER_OPTIONS.map((option) => (
-              <DropdownMenuCheckboxItem
-                key={option.ellipsoidId}
-                checked={selectedPlanet === option.ellipsoidId}
-                onCheckedChange={(checked) => togglePlanet(option.ellipsoidId, checked)}
-              >
-                {t(PLANET_SWITCHER_LABEL_KEYS[option.ellipsoidId])}
-              </DropdownMenuCheckboxItem>
-            ))}
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              disabled={collaborationActive}
+              onSelect={() => resetLayerHovers("project")}
+            >
+              {t("layers.resetHoversToProject")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={collaborationActive}
+              onSelect={() => resetLayerHovers("clear")}
+            >
+              {t("layers.clearAllHovers")}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.basemaps")}
-          aria-label={t("layers.basemaps")}
-          aria-pressed={isPluginActive(BASEMAP_CONTROL_PLUGIN_ID)}
-          onClick={() => togglePlugin(BASEMAP_CONTROL_PLUGIN_ID, createAppAPI(mapControllerRef))}
-        >
-          <MapIcon
-            className={cn("h-4 w-4", isPluginActive(BASEMAP_CONTROL_PLUGIN_ID) && "text-primary")}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.geoEditor")}
-          aria-label={t("layers.geoEditor")}
-          aria-pressed={isPluginActive(GEO_EDITOR_PLUGIN_ID)}
-          onClick={() => togglePlugin(GEO_EDITOR_PLUGIN_ID, createAppAPI(mapControllerRef))}
-        >
-          <PenTool
-            className={cn("h-4 w-4", isPluginActive(GEO_EDITOR_PLUGIN_ID) && "text-primary")}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.newGroup")}
-          aria-label={t("layers.newGroup")}
-          onClick={onCreateGroup}
-        >
-          <FolderPlus className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={allLayersVisible ? t("layers.hideAllLayers") : t("layers.showAllLayers")}
-          aria-label={allLayersVisible ? t("layers.hideAllLayers") : t("layers.showAllLayers")}
-          onClick={onToggleAllLayers}
-        >
-          {allLayersVisible ? (
-            <Eye className="h-4 w-4" />
-          ) : (
-            <EyeOff className="h-4 w-4 text-muted-foreground" />
-          )}
-        </Button>
-        {/* A geometry edit session owns map clicks, which is why the
-            per-layer Identify button is disabled while its layer is edited;
-            the all-layer handler has to stand down for the same reason. */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.identifyVisibleLayersHint")}
-          aria-label={t("layers.identifyVisibleLayers")}
-          aria-pressed={identifyLayerId === IDENTIFY_ALL_LAYERS_ID}
-          disabled={geometryEditLayerId !== null}
-          onClick={() =>
-            setIdentifyLayer(
-              identifyLayerId === IDENTIFY_ALL_LAYERS_ID ? null : IDENTIFY_ALL_LAYERS_ID,
-            )
-          }
-        >
-          <MousePointerClick
-            className={cn("h-4 w-4", identifyLayerId === IDENTIFY_ALL_LAYERS_ID && "text-primary")}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.collapse")}
-          aria-label={t("layers.collapse")}
-          onClick={onCollapse}
-        >
-          <PanelLeftClose className="h-4 w-4" />
-        </Button>
       </div>
-    </div>
-    <div className="flex items-center gap-1 border-t px-3 py-1 text-xs">
-      <span className="me-auto text-muted-foreground">{t("layers.hoverTooltips")}</span>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 px-2 text-xs"
-        aria-pressed={hoverTooltipsEnabled}
-        onClick={() => setHoverTooltipsEnabled(!hoverTooltipsEnabled)}
-      >
-        {hoverTooltipsEnabled ? t("layers.turnHoversOff") : t("layers.restoreHovers")}
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t("layers.hoverOptions")}>
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem disabled={collaborationActive} onSelect={() => resetLayerHovers("project")}>
-            {t("layers.resetHoversToProject")}
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={collaborationActive} onSelect={() => resetLayerHovers("clear")}>
-            {t("layers.clearAllHovers")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
     </div>
   );
 }

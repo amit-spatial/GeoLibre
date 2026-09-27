@@ -316,7 +316,9 @@ export const createLayersSlice: SliceCreator<LayersSlice> = (set, get) => ({
         changed = true;
         return { ...layer, popup: Object.keys(popup).length ? popup : undefined };
       });
-      return changed ? { layers, isDirty: true, hoverTooltipsEnabled: true } : { hoverTooltipsEnabled: true };
+      return changed
+        ? { layers, isDirty: true, hoverTooltipsEnabled: true }
+        : { hoverTooltipsEnabled: true };
     }),
 
   setLayerEditorTracking: (id, editorTracking) => get().updateLayer(id, { editorTracking }),

@@ -38,9 +38,7 @@ describe("global hover controls", () => {
     state().resetLayerHovers("clear");
     assert.equal(state().layers[0].popup?.hover, undefined);
     assert.equal(state().layers[0].popup?.click, false);
-    assert.deepEqual(state().layers[0].popup?.fields, [
-      { field: "distance_km", hover: true },
-    ]);
+    assert.deepEqual(state().layers[0].popup?.fields, [{ field: "distance_km", hover: true }]);
     assert.equal(state().layers[1].popup, undefined);
     assert.equal(state().isDirty, true);
     assert.equal(useAppStore.temporal.getState().pastStates.length, 1);

@@ -3,9 +3,8 @@ import { it } from "node:test";
 import { createElement } from "react";
 import { fireEvent, render, screen, useAppStore } from "./helpers/dom";
 
-const { ViewerLayerPanel } = await import(
-  "../apps/geolibre-desktop/src/components/panels/ViewerLayerPanel"
-);
+const { ViewerLayerPanel } =
+  await import("../apps/geolibre-desktop/src/components/panels/ViewerLayerPanel");
 
 it("lets a viewer pause and restore project hover tips", () => {
   useAppStore.getState().newProject({ name: "Viewer hovers" });
