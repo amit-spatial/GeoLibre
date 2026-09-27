@@ -47,6 +47,7 @@ import type { LayerActionsMenuShared } from "./layer-panel/LayerActionsMenu";
 import { LayerGroupHeader } from "./layer-panel/LayerGroupHeader";
 import { LayerMetadataDialog, useLayerMetadataDialog } from "./layer-panel/LayerMetadataDialog";
 import { LayerPanelHeader } from "./layer-panel/LayerPanelHeader";
+import { LayerHoverControls } from "./layer-panel/LayerHoverControls";
 import { LayerRow } from "./layer-panel/LayerRow";
 import {
   RefreshSettingsDialog,
@@ -491,19 +492,22 @@ export function LayerPanel({
         className="absolute -end-1 top-0 z-20 hidden h-full w-2 cursor-col-resize touch-none select-none border-e border-transparent hover:border-primary md:block"
         onPointerDown={onResizeStart}
       />
-      <LayerPanelHeader
-        mapControllerRef={mapControllerRef}
-        selectedPlanet={selectedPlanet}
-        togglePlanet={togglePlanet}
-        isPluginActive={isPluginActive}
-        togglePlugin={togglePlugin}
-        onCreateGroup={rename.handleCreateGroup}
-        allLayersVisible={allLayersVisible}
-        onToggleAllLayers={toggleAllLayers}
-        geometryEditLayerId={geometryEditLayerId}
-        identifyLayerId={identifyLayerId}
-        onCollapse={() => setIsCollapsed(true)}
-      />
+      <div>
+        <LayerPanelHeader
+          mapControllerRef={mapControllerRef}
+          selectedPlanet={selectedPlanet}
+          togglePlanet={togglePlanet}
+          isPluginActive={isPluginActive}
+          togglePlugin={togglePlugin}
+          onCreateGroup={rename.handleCreateGroup}
+          allLayersVisible={allLayersVisible}
+          onToggleAllLayers={toggleAllLayers}
+          geometryEditLayerId={geometryEditLayerId}
+          identifyLayerId={identifyLayerId}
+          onCollapse={() => setIsCollapsed(true)}
+        />
+        <LayerHoverControls />
+      </div>
       <ScrollArea
         className="min-h-0 [&_[data-radix-scroll-area-viewport]]:touch-pan-y [&_[data-radix-scroll-area-viewport]]:overscroll-contain [&_[data-radix-scroll-area-viewport]>div]:block! [&_[data-radix-scroll-area-viewport]>div]:w-full! [&_[data-radix-scroll-area-viewport]>div]:min-w-0!"
         // Radix measures scroll content with an injected display:table
